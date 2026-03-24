@@ -1,0 +1,92 @@
+{
+  "manifest_version": "0.3",
+  "name": "options-analysis-suite",
+  "display_name": "Options Analysis Suite",
+  "version": "1.0.0",
+  "description": "Access your options analysis data, market research, and portfolio risk metrics directly in Claude.",
+  "author": {
+    "name": "CoryP1990",
+    "url": "https://github.com/CoryP1990"
+  },
+  "license": "MIT",
+  "server": {
+    "type": "node",
+    "entry_point": "index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/index.js"],
+      "env": {
+        "OAS_EMAIL": "${user_config.email}",
+        "OAS_PASSWORD": "${user_config.password}",
+        "OAS_PROXY_URL": "${user_config.proxy_url}",
+        "OAS_AUTH_SERVER_URL": "${user_config.auth_server_url}"
+      }
+    }
+  },
+  "user_config": {
+    "email": {
+      "type": "string",
+      "title": "Account Email",
+      "description": "Your Options Analysis Suite account email",
+      "required": true
+    },
+    "password": {
+      "type": "string",
+      "title": "Account Password",
+      "description": "Your account password (stored in OS keychain)",
+      "sensitive": true,
+      "required": true
+    },
+    "proxy_url": {
+      "type": "string",
+      "title": "Proxy Server URL",
+      "description": "Platform proxy server URL",
+      "default": "https://proxy.optionsanalysissuite.com",
+      "required": false
+    },
+    "auth_server_url": {
+      "type": "string",
+      "title": "Auth Server URL",
+      "description": "Platform auth server URL",
+      "default": "https://api.optionsanalysissuite.com",
+      "required": false
+    }
+  },
+  "tools": [
+    { "name": "get_iv_history", "description": "Get historical implied/historical volatility for a symbol" },
+    { "name": "get_greeks_history", "description": "Get historical options Greeks for a symbol" },
+    { "name": "get_market_regime", "description": "Get current market stress regime assessment" },
+    { "name": "get_earnings", "description": "Get earnings history and estimates" },
+    { "name": "get_news", "description": "Get recent news headlines for a stock" },
+    { "name": "get_short_volume", "description": "Get FINRA short volume data" },
+    { "name": "get_fundamentals", "description": "Get company fundamental data" },
+    { "name": "get_yield_curve", "description": "Get US Treasury yield curve" },
+    { "name": "get_insider_trading", "description": "Get SEC Form 4 insider filings" },
+    { "name": "get_most_active_options", "description": "Get most actively traded options" },
+    { "name": "get_risk_free_rate", "description": "Get current Treasury-based risk-free rate for options pricing" },
+    { "name": "get_options_analytics_history", "description": "Get daily options analytics snapshots (IV, Greeks, GEX, skew, etc.)" },
+    { "name": "get_iv_surface", "description": "Get IV surface/skew across strikes and expirations" },
+    { "name": "get_stock_prices", "description": "Get historical OHLCV price data" },
+    { "name": "get_short_interest", "description": "Get FINRA biweekly short interest data" },
+    { "name": "get_analyst_data", "description": "Get analyst ratings, price targets, and consensus estimates" },
+    { "name": "get_economic_calendar", "description": "Get upcoming macro economic events" },
+    { "name": "get_options_chain", "description": "Get full options chain snapshot with strikes, OI, IV, and Greeks" },
+    { "name": "get_fail_to_deliver", "description": "Get SEC Failure-to-Deliver data" },
+    { "name": "get_threshold_history", "description": "Get SEC Reg SHO threshold list history" },
+    { "name": "get_dark_pool_data", "description": "Get FINRA OTC/dark pool and ATS trading data" },
+    { "name": "get_trading_halts", "description": "Get current and recent trading halts" },
+    { "name": "get_activist_filings", "description": "Get Schedule 13D/13F activist investor filings" },
+    { "name": "get_platform_info", "description": "Get platform background information" },
+    { "name": "get_analysis_history", "description": "Get user's options pricing analysis history" },
+    { "name": "get_gex_snapshot", "description": "Get user's Gamma Exposure snapshots" },
+    { "name": "get_portfolio_snapshot", "description": "Get user's portfolio snapshots with Greeks" },
+    { "name": "get_risk_snapshot", "description": "Get user's risk analysis snapshots" },
+    { "name": "get_analysis_rollups", "description": "Get user's analysis trend aggregates" },
+    { "name": "get_fft_results", "description": "Get user's FFT scanner results — mispricing signals and calibration data" },
+    { "name": "get_user_annotations", "description": "Get user's research notes, tags, and alerts" },
+    { "name": "query_analysis", "description": "Query analysis history with numeric filters (delta, volatility, DTE ranges)" }
+  ],
+  "compatibility": {
+    "platforms": ["darwin", "win32", "linux"]
+  }
+}
