@@ -5,8 +5,8 @@
   "version": "1.0.0",
   "description": "Access your options analysis data, market research, and portfolio risk metrics directly in Claude.",
   "author": {
-    "name": "CoryP1990",
-    "url": "https://github.com/CoryP1990"
+    "name": "Options Analysis Suite",
+    "url": "https://github.com/Options-Analysis-Suite"
   },
   "license": "MIT",
   "server": {
