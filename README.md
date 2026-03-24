@@ -94,4 +94,4 @@ Without sync enabled, Claude can still access all 23 market data tools.
 
 ## Support
 
-Contact support@optionsanalysissuite.com or visit optionsanalysissuite.com/documentation
+Contact optionsanalysissuite@gmail.com or visit optionsanalysissuite.com/documentation
