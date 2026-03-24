@@ -9,6 +9,10 @@
     "url": "https://github.com/Options-Analysis-Suite"
   },
   "license": "MIT",
+  "icons": [
+    { "src": "icon-180.png", "size": "180x180" },
+    { "src": "icon-96.png", "size": "96x96" }
+  ],
   "server": {
     "type": "node",
     "entry_point": "index.js",
