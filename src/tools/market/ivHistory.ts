@@ -17,12 +17,12 @@ export function register(server: McpServer, client: ProxyClient): void {
       if (days === 90) {
         const cap = 30;
         if (res && Array.isArray(res.data) && res.data.length > cap) {
-          res._data_note = `Trimmed from ${res.data.length} to last ${cap} entries. Set days explicitly for full data.`;
-          res.data = res.data.slice(-cap);
+          res._data_note = `Trimmed from ${res.data.length} to most recent ${cap} entries. Set days explicitly for full data.`;
+          res.data = res.data.slice(0, cap);
         }
         if (res && Array.isArray(res.history) && res.history.length > cap) {
-          res._history_note = `Trimmed from ${res.history.length} to last ${cap} entries. Set days explicitly for full data.`;
-          res.history = res.history.slice(-cap);
+          res._history_note = `Trimmed from ${res.history.length} to most recent ${cap} entries. Set days explicitly for full data.`;
+          res.history = res.history.slice(0, cap);
         }
       }
       return res;

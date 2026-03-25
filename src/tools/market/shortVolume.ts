@@ -12,10 +12,10 @@ export function register(server: McpServer, client: ProxyClient): void {
     },
     toolHandler(async ({ symbol }) => {
       const res = await client.get(`/finra/short-volume/${encodeURIComponent(symbol.toUpperCase())}`) as any;
-      // Trim history array to last 30 entries; keep summary fields (latest, averages, yearStats) as-is
+      // Trim history to most recent 30 entries (backend returns newest-first)
       if (res && Array.isArray(res.history) && res.history.length > 30) {
-        res._history_note = `Trimmed from ${res.history.length} to last 30 entries.`;
-        res.history = res.history.slice(-30);
+        res._history_note = `Trimmed from ${res.history.length} to most recent 30 entries.`;
+        res.history = res.history.slice(0, 30);
       }
       return res;
     }),
