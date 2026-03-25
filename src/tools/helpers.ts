@@ -40,39 +40,53 @@ const MAX_RESPONSE_BYTES = 50 * 1024; // 50 KB
 /**
  * Wraps a tool handler function with standard error handling.
  * Returns JSON data on success, human-readable error on failure.
- * Applies response size guard: truncates large arrays and prepends a note if over 50 KB.
+ * Applies response size guard unless the handler signals to skip it
+ * by returning { _skipSizeGuard: true, data: ... }.
  */
 export function toolHandler<T extends Record<string, unknown>>(
   fn: (args: T) => Promise<unknown>,
 ): (args: T) => Promise<ToolResult> {
   return async (args: T): Promise<ToolResult> => {
     try {
-      const data = await fn(args);
+      let data = await fn(args);
       if (data == null) {
         return { content: [{ type: 'text', text: 'No data available for this query.' }] };
       }
+
+      // Check if the handler opted out of the size guard
+      let skipGuard = false;
+      if (typeof data === 'object' && data !== null && '_skipSizeGuard' in (data as any)) {
+        skipGuard = true;
+        data = (data as any).data;
+      }
+
       // Handle sync endpoint empty response
       if (typeof data === 'object' && 'data' in (data as any) && Array.isArray((data as any).data) && (data as any).data.length === 0) {
         return { content: [{ type: 'text', text: 'No data found. If this is user analysis data, make sure MCP sync is enabled in the platform\'s Account Settings. Data syncs automatically as you use the platform.' }] };
       }
 
-      // Response size guard — truncate large arrays, then re-check size
-      let processed = truncateLargeArrays(data);
-      let json = JSON.stringify(processed, null, 2);
-      // If still too large after array truncation, progressively shrink arrays
-      if (json.length > MAX_RESPONSE_BYTES && typeof processed === 'object' && processed !== null) {
-        const obj = processed as Record<string, unknown>;
-        for (const [key, value] of Object.entries(obj)) {
-          if (Array.isArray(value) && value.length > 5) {
-            obj[key] = value.slice(0, 5);
-            obj[`_${key}_note`] = `Aggressively trimmed to 5 items due to size. Request specific filters for full data.`;
+      let json: string;
+      if (skipGuard) {
+        // Full mode — no truncation, just serialize
+        json = JSON.stringify(data, null, 2);
+      } else {
+        // Response size guard — truncate large arrays, then re-check size
+        let processed = truncateLargeArrays(data);
+        json = JSON.stringify(processed, null, 2);
+        // If still too large after array truncation, progressively shrink arrays
+        if (json.length > MAX_RESPONSE_BYTES && typeof processed === 'object' && processed !== null) {
+          const obj = processed as Record<string, unknown>;
+          for (const [key, value] of Object.entries(obj)) {
+            if (Array.isArray(value) && value.length > 5) {
+              obj[key] = value.slice(0, 5);
+              obj[`_${key}_note`] = `Aggressively trimmed to 5 items due to size. Request specific filters for full data.`;
+            }
           }
+          json = JSON.stringify(obj, null, 2);
         }
-        json = JSON.stringify(obj, null, 2);
-      }
-      if (json.length > MAX_RESPONSE_BYTES) {
-        // Last resort: valid JSON with truncation note
-        json = JSON.stringify({ _error: 'Response too large. Use specific filters (symbol, date range, limit) to narrow results.', _size: `${Math.round(json.length / 1024)}KB` });
+        if (json.length > MAX_RESPONSE_BYTES) {
+          json = JSON.stringify({ _error: 'Response too large. Use specific filters (symbol, date range, limit) to narrow results.', _size: `${Math.round(json.length / 1024)}KB` });
+        }
       }
 
       return {
