@@ -1,15 +1,28 @@
-# Options Analysis Suite — Claude Desktop Extension
+# Options Analysis Suite — AI Integration
 
-MCP (Model Context Protocol) server that gives Claude direct access to your options analysis data, 32 market research tools, and personalized trade recommendations.
+MCP server that gives Claude, ChatGPT, and Perplexity direct access to your options analysis data, 32 market research tools, and personalized trade recommendations.
 
-## Installation
+## How It Works
 
-1. Download the `.mcpb` extension file from your account at optionsanalysissuite.com
-2. Open Claude Desktop → Settings → Extensions
-3. Click "Install Extension" and select the `.mcpb` file
-4. Enter your Options Analysis Suite email and password when prompted
+You're running an FFT mispricing scan across your portfolio tickers. On another tab, you've got the GEX chart open and you're watching dealer positioning shift. You run a Heston calibration on NVDA and the model says calls are 12% cheap relative to the surface. Your portfolio is long delta and you're not sure if you should hedge or press.
 
-## What Claude Can Access
+Ask the AI: *"Based on my current positions and risk profile, what should I do about NVDA?"*
+
+It already knows. It pulls your portfolio snapshot — every position, every Greek, your net delta and gamma exposure. It sees the FFT scan flagging NVDA calls as underpriced. It checks your risk analysis — your VaR, your beta exposure, your stress test results. It reads the market regime score and sees we're in a normal environment. It pulls NVDA's IV percentile, the earnings date, analyst consensus, insider activity, and short interest.
+
+Then it gives you a specific trade — not generic advice from a chatbot, but a recommendation grounded in your actual data.
+
+## Supported Platforms
+
+| Platform | Transport | Auth | Setup |
+|----------|-----------|------|-------|
+| **Claude Desktop** | Local stdio (.mcpb extension) | Credentials in OS keychain | Download extension from Account page |
+| **ChatGPT** | Remote HTTP (OAuth) | OAuth login flow | Settings → Developer Mode → Apps → Create |
+| **Perplexity** | Remote HTTP (API key) | base64(email:password) | Settings → MCP Connectors → Add |
+
+All three platforms access the same 32 tools and your synced analysis data.
+
+## What the AI Can Access
 
 ### Market Data (23 tools)
 - **IV/HV History** — Historical implied and realized volatility with percentile rankings
@@ -51,14 +64,14 @@ MCP (Model Context Protocol) server that gives Claude direct access to your opti
 
 ## Enabling Data Sync
 
-To give Claude access to your personal analysis data:
+To give the AI access to your personal analysis data:
 
 1. Log in to Options Analysis Suite
 2. Go to Account → AI Settings → Data Sync
 3. Toggle sync on
 4. Your analysis data will automatically sync as you use the platform
 
-Without sync enabled, Claude can still access all 23 market data tools.
+Without sync enabled, the AI can still access all 23 market data tools.
 
 ## Example Prompts
 
@@ -73,24 +86,26 @@ Without sync enabled, Claude can still access all 23 market data tools.
 
 ## Privacy
 
-- Your login credentials are stored in the OS keychain (macOS Keychain / Windows Credential Manager)
-- The extension only reads data — it never modifies your account or analysis data
-- All data requests go through the platform's authenticated API
+- Claude Desktop stores credentials in the OS keychain (macOS Keychain / Windows Credential Manager)
+- ChatGPT uses OAuth — you sign in through our secure login page, no credentials stored by ChatGPT
+- Perplexity uses an API key (base64-encoded credentials) — transmitted only over HTTPS
+- All integrations are read-only — they never modify your account or analysis data
 - Data sync is opt-in and can be disabled at any time
 
 ## Requirements
 
-- Claude Desktop (macOS or Windows)
 - Active Options Analysis Suite subscription (Professional or Trial)
-- Node.js (bundled with Claude Desktop)
+- Claude Desktop: macOS or Windows
+- ChatGPT: Web or desktop app with Developer Mode enabled
+- Perplexity: Web or desktop app
 
 ## Troubleshooting
 
-**"Authentication failed"** — Check your email/password in extension settings. Make sure your subscription is active.
+**"Authentication failed"** — Check your credentials. Make sure your subscription is active.
 
 **"No data found"** — Enable Data Sync in Account → AI Settings. Run some analyses first.
 
-**Extension not responding** — Restart Claude Desktop. The extension runs as a local process and may need a fresh start after system sleep.
+**Extension not responding (Claude Desktop)** — Restart Claude Desktop. The extension runs as a local process.
 
 ## Support
 
