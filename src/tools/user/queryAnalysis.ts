@@ -42,6 +42,7 @@ export function register(server: McpServer, client: ProxyClient): void {
       }
 
       // Client-side filtering on numeric fields from record.data and record.facts
+      const fetchedAll = res.data.length < fetchLimit;
       res.data = res.data.filter((record: any) => {
         const data = record.data || {};
         const facts = record.facts || {};
@@ -66,6 +67,9 @@ export function register(server: McpServer, client: ProxyClient): void {
       }).slice(0, limit);
 
       res.count = res.data.length;
+      if (!fetchedAll && res.data.length < limit) {
+        res._query_note = `Searched ${fetchLimit} most recent records. More records may exist that match your filters — try narrowing by symbol, model, or date range.`;
+      }
       return res;
     }),
   );

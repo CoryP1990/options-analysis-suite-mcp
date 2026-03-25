@@ -13,9 +13,10 @@ export function register(server: McpServer, client: ProxyClient): void {
     },
     toolHandler(async ({ limit, full }) => {
       const res = await client.get('/sync/analysis-data', { type: 'risk', limit: String(limit) }) as any;
+      if (full && res != null) return { _skipSizeGuard: true, data: res };
       // Remove correlation matrix and MC details to reduce token usage
       // Backend fields: correlationMatrix, mcVarDetails (not monteCarloSimulation)
-      if (!full && res && Array.isArray(res.data)) {
+      if (res && Array.isArray(res.data)) {
         res.data = res.data.map((record: any) => {
           if (record.details && typeof record.details === 'object') {
             const d = record.details;

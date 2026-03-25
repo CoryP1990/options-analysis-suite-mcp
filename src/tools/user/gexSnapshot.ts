@@ -14,9 +14,10 @@ export function register(server: McpServer, client: ProxyClient): void {
     },
     toolHandler(async ({ symbol, limit, full }) => {
       const res = await client.get('/sync/analysis-data', { type: 'gex', symbol, limit: String(limit) }) as any;
+      if (full && res != null) return { _skipSizeGuard: true, data: res };
       // Details contain per-expiration arrays — strip those and keep summary
       // Key GEX fields (gammaFlip, callWall, putWall) live on the summary record (record.data), not details
-      if (!full && res && Array.isArray(res.data)) {
+      if (res && Array.isArray(res.data)) {
         res.data = res.data.map((record: any) => {
           if (record.details && typeof record.details === 'object') {
             const d = record.details;

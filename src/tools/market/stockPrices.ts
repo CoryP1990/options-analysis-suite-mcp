@@ -9,7 +9,7 @@ export function register(server: McpServer, client: ProxyClient): void {
     'Get historical OHLCV price data for a stock or ETF. Returns daily open, high, low, close, and volume. Useful for charting, technical analysis, and correlating price action with options flow.',
     {
       symbol: z.string().describe('Ticker symbol (e.g., AAPL, SPY)'),
-      days: z.number().int().min(1).max(1000).default(30).describe('Number of trading days (default 30). Response capped at 60 entries; request more days explicitly if needed.'),
+      days: z.number().int().min(1).max(1000).default(30).describe('Number of trading days (default 30). Response always capped at 60 most recent entries regardless of days requested.'),
     },
     toolHandler(async ({ symbol, days }) => {
       // Backend route: /stock-prices/:symbol with optional start/end/limit params

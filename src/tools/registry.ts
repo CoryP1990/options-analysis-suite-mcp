@@ -31,6 +31,7 @@ import { register as thresholdHistory } from './market/thresholdList.js';
 import { register as darkPoolData } from './market/darkPoolData.js';
 import { register as tradingHalts } from './market/tradingHalts.js';
 import { register as activistFilings } from './market/activistFilings.js';
+import { register as webSearch } from './market/webSearch.js';
 
 // Platform info
 import { registerPlatformInfo } from './platformInfo.js';
@@ -50,7 +51,7 @@ export function registerAllTools(
   client: ProxyClient,
   _tokenManager: TokenManager,
 ): void {
-  // Market data (23 tools — web search handled natively by Claude Desktop)
+  // Market data (24 tools including web search)
   ivHistory(server, client);
   greeksHistory(server, client);
   marketRegime(server, client);
@@ -74,6 +75,7 @@ export function registerAllTools(
   darkPoolData(server, client);
   tradingHalts(server, client);
   activistFilings(server, client);
+  webSearch(server, client);
 
   // Platform info (1 tool)
   registerPlatformInfo(server);

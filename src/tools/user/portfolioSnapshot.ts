@@ -13,9 +13,10 @@ export function register(server: McpServer, client: ProxyClient): void {
     },
     toolHandler(async ({ limit, full }) => {
       const res = await client.get('/sync/analysis-data', { type: 'portfolio', limit: String(limit) }) as any;
+      if (full && res != null) return { _skipSizeGuard: true, data: res };
       // Keep aggregate summary, strip heavy per-position arrays
       // Backend detail fields: positionGreeks (array), fullAllocation (array), marginDetails, etc.
-      if (!full && res && Array.isArray(res.data)) {
+      if (res && Array.isArray(res.data)) {
         res.data = res.data.map((record: any) => {
           if (record.details && typeof record.details === 'object') {
             const d = record.details;

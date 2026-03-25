@@ -25,7 +25,8 @@
         "OAS_EMAIL": "${user_config.email}",
         "OAS_PASSWORD": "${user_config.password}",
         "OAS_PROXY_URL": "${user_config.proxy_url}",
-        "OAS_AUTH_SERVER_URL": "${user_config.auth_server_url}"
+        "OAS_AUTH_SERVER_URL": "${user_config.auth_server_url}",
+        "OAS_SEARCH_API_KEY": "${user_config.search_api_key}"
       }
     }
   },
@@ -56,6 +57,13 @@
       "description": "Platform auth server URL",
       "default": "https://api.optionsanalysissuite.com",
       "required": false
+    },
+    "search_api_key": {
+      "type": "string",
+      "title": "Brave Search API Key",
+      "description": "Optional Brave Search API key for web search. Get a free key at api.search.brave.com",
+      "sensitive": true,
+      "required": false
     }
   },
   "tools": [
@@ -82,6 +90,7 @@
     { "name": "get_dark_pool_data", "description": "Get FINRA OTC/dark pool and ATS trading data" },
     { "name": "get_trading_halts", "description": "Get current and recent trading halts" },
     { "name": "get_activist_filings", "description": "Get Schedule 13D/13F activist investor filings" },
+    { "name": "web_search", "description": "Search the web for real-time financial information and news" },
     { "name": "get_platform_info", "description": "Get platform background information" },
     { "name": "get_analysis_history", "description": "Get user's options pricing analysis history" },
     { "name": "get_gex_snapshot", "description": "Get user's Gamma Exposure snapshots" },

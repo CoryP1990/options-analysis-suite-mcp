@@ -67,8 +67,8 @@ export function toolHandler<T extends Record<string, unknown>>(
 
       let json: string;
       if (skipGuard) {
-        // Full mode — no truncation, just serialize
-        json = JSON.stringify(data, null, 2);
+        // Full mode — compact JSON to minimize token usage
+        json = JSON.stringify(data);
       } else {
         // Response size guard — truncate large arrays, then re-check size
         let processed = truncateLargeArrays(data);
@@ -78,8 +78,8 @@ export function toolHandler<T extends Record<string, unknown>>(
           const obj = processed as Record<string, unknown>;
           for (const [key, value] of Object.entries(obj)) {
             if (Array.isArray(value) && value.length > 5) {
-              obj[key] = value.slice(0, 5);
-              obj[`_${key}_note`] = `Aggressively trimmed to 5 items due to size. Request specific filters for full data.`;
+              obj[key] = value.slice(-5);
+              obj[`_${key}_note`] = `Aggressively trimmed to most recent 5 items due to size. Request specific filters for full data.`;
             }
           }
           json = JSON.stringify(obj, null, 2);

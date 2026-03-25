@@ -11,12 +11,14 @@ export function register(server: McpServer, client: ProxyClient): void {
       symbol: z.string().optional().describe('Filter by ticker symbol'),
       limit: z.number().int().min(1).max(50).default(10).describe('Max results (default 10)'),
       since: z.string().optional().describe('Only results after this date (ISO format)'),
+      full: z.boolean().default(false).describe('Return full untrimmed data including nested model outputs and calibration parameters'),
     },
-    toolHandler(async ({ symbol, limit, since }) => {
+    toolHandler(async ({ symbol, limit, since, full }) => {
       const params: Record<string, string> = { type: 'fft', limit: String(limit) };
       if (symbol) params.symbol = symbol;
       if (since) params.since = since;
       const res = await client.get('/sync/analysis-data', params) as any;
+      if (full && res != null) return { _skipSizeGuard: true, data: res };
       // Flatten deeply nested data objects for readability
       if (res && Array.isArray(res.data)) {
         res.data = res.data.map((record: any) => {

@@ -20,8 +20,9 @@ export function register(server: McpServer, client: ProxyClient): void {
       if (model) params.model = model;
       if (since) params.since = since;
       const res = await client.get('/sync/analysis-data', params) as any;
+      if (full && res != null) return { _skipSizeGuard: true, data: res };
       // For each record, flatten deeply nested data to top-level keys only
-      if (!full && res && Array.isArray(res.data)) {
+      if (res && Array.isArray(res.data)) {
         res.data = res.data.map((record: any) => {
           if (record.data && typeof record.data === 'object') {
             record.data = Object.fromEntries(

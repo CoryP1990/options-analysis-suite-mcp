@@ -11,7 +11,6 @@ export function register(server: McpServer, client: ProxyClient): void {
       symbol: z.string().describe('Ticker symbol'),
       period: z.enum(['day', 'week']).default('day').describe('Aggregation period'),
       limit: z.number().int().min(1).max(90).default(10).describe('Max periods (default 10). Increase up to 90 for longer trends.'),
-      full: z.boolean().default(false).describe('Return full untrimmed data including detail tables, correlation matrices, and per-position breakdowns'),
     },
     toolHandler(async ({ symbol, period, limit }) => {
       return client.get('/sync/analysis-data', { type: 'rollups', symbol, period, limit: String(limit) });

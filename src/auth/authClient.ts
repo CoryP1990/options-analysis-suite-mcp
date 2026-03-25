@@ -37,6 +37,7 @@ export async function login(
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password }),
+    signal: AbortSignal.timeout(15_000),
   });
 
   if (!response.ok) {
@@ -47,7 +48,12 @@ export async function login(
     throw new AuthError(`Login failed (HTTP ${status}). Please try again later.`);
   }
 
-  const json = await response.json() as any;
+  let json: any;
+  try {
+    json = await response.json();
+  } catch {
+    throw new AuthError('Login succeeded but response was not valid JSON.');
+  }
   const accessToken = json.token || json.accessToken;
   const refreshToken = json.refreshToken;
 
@@ -71,13 +77,19 @@ export async function refreshAccessToken(
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ refreshToken }),
+    signal: AbortSignal.timeout(15_000),
   });
 
   if (!response.ok) {
     throw new AuthError('Session expired. Please restart the MCP extension to re-authenticate.');
   }
 
-  const json = await response.json() as any;
+  let json: any;
+  try {
+    json = await response.json();
+  } catch {
+    throw new AuthError('Token refresh succeeded but response was not valid JSON.');
+  }
   const accessToken = json.token || json.accessToken;
   const newRefreshToken = json.refreshToken || refreshToken;
 
@@ -99,6 +111,7 @@ export async function getProfile(
 ): Promise<UserProfile> {
   const response = await fetch(`${authServerUrl}/api/v1/user/profile`, {
     headers: { Authorization: `Bearer ${accessToken}` },
+    signal: AbortSignal.timeout(15_000),
   });
 
   if (!response.ok) {
@@ -108,5 +121,9 @@ export async function getProfile(
     throw new AuthError(`Failed to fetch profile (HTTP ${response.status}).`);
   }
 
-  return response.json() as Promise<UserProfile>;
+  try {
+    return await response.json() as UserProfile;
+  } catch {
+    throw new AuthError('Profile response was not valid JSON.');
+  }
 }

@@ -74,7 +74,11 @@ export class ProxyClient {
 
   private async handleResponse<T>(response: Response, path: string): Promise<T> {
     if (response.ok) {
-      return response.json() as Promise<T>;
+      try {
+        return await response.json() as T;
+      } catch {
+        throw new ApiError(`Invalid JSON response from ${path}`, response.status);
+      }
     }
 
     const status = response.status;

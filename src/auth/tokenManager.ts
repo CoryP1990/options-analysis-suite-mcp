@@ -17,6 +17,7 @@ export class TokenManager {
   private tokens: AuthTokens | null = null;
   private profile: UserProfile | null = null;
   private refreshTimerId: ReturnType<typeof setTimeout> | null = null;
+  private refreshPromise: Promise<void> | null = null;
 
   constructor(
     private authServerUrl: string,
@@ -54,10 +55,15 @@ export class TokenManager {
       throw new AuthError('Not authenticated. Please restart the MCP extension.');
     }
 
-    // If within buffer of expiry, refresh now
+    // If within buffer of expiry, refresh now (deduplicate concurrent callers)
     const now = Date.now();
     if (now >= this.tokens.expiresAt - REFRESH_BUFFER_MS) {
-      await this.doRefresh();
+      if (!this.refreshPromise) {
+        this.refreshPromise = this.doRefresh()
+          .then(() => this.scheduleRefresh())
+          .finally(() => { this.refreshPromise = null; });
+      }
+      await this.refreshPromise;
     }
 
     return this.tokens.accessToken;
@@ -95,6 +101,12 @@ export class TokenManager {
   private scheduleRefresh(): void {
     if (!this.tokens) return;
 
+    // Clear any existing timer to prevent double-scheduling
+    if (this.refreshTimerId) {
+      clearTimeout(this.refreshTimerId);
+      this.refreshTimerId = null;
+    }
+
     const now = Date.now();
     const delay = Math.max(
       this.tokens.expiresAt - now - REFRESH_BUFFER_MS,
@@ -102,10 +114,13 @@ export class TokenManager {
     );
 
     this.refreshTimerId = setTimeout(async () => {
-      try {
-        await this.doRefresh();
-        this.scheduleRefresh();
-      } catch {
+      // Use the same refreshPromise dedup as the inline path
+      if (!this.refreshPromise) {
+        this.refreshPromise = this.doRefresh()
+          .then(() => this.scheduleRefresh())
+          .finally(() => { this.refreshPromise = null; });
+      }
+      try { await this.refreshPromise; } catch {
         // Refresh failed — will retry on next getAccessToken() call
       }
     }, delay);
