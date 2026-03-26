@@ -6,7 +6,7 @@ import { toolHandler } from '../helpers.js';
 export function register(server: McpServer, client: ProxyClient): void {
   server.tool(
     'get_market_regime',
-    'Get the current market stress regime. Returns a composite stress score (0-100), confidence, key drivers (VIX, credit spreads, yield curve, correlation, breadth), and Greek exposure data (net gamma/delta/vega/vanna/charm/vomma, call/put walls, gamma flip). Above 60 = elevated stress with inflated option premiums. Below 30 = calm regime where selling premium tends to outperform. Use include_symbols=true to also get per-symbol regime breakdowns by sector.',
+    'Get the MARKET COMPOSITE stress regime — an aggregate score across SPY/QQQ/IWM/DIA, not per-symbol data. Returns composite stress score (0-100), confidence, and key drivers (VIX, credit spreads, yield curve, correlation, breadth). Above 60 = elevated stress. Below 30 = calm. For per-symbol regime and Greek exposures (gamma, delta, vega, vanna, charm, vomma, walls, gamma flip), use get_regime_symbol instead. Use include_symbols=true to get all 124 per-symbol breakdowns.',
     {
       date: z.string().optional().describe('Specific date (YYYY-MM-DD), defaults to latest'),
       include_symbols: z.boolean().optional().describe('Include per-symbol regime breakdowns (~180KB). Default false — returns market summary only.'),
@@ -14,16 +14,37 @@ export function register(server: McpServer, client: ProxyClient): void {
     toolHandler(async ({ date, include_symbols }) => {
       const res = await client.get('/regime/current', date ? { date } : {}) as any;
       // Hoist Greek exposure data from vector._meta.gex to top level for discoverability
-      if (res && typeof res === 'object' && 'market' in res) {
-        const market = res.market;
-        const gex = market?.vector?._meta?.gex;
-        if (gex) {
-          market.exposures = {
-            netGamma: gex.netGamma, netDelta: gex.netDelta, netVega: gex.netVega,
-            netVanna: gex.netVanna, netCharm: gex.netCharm, netVomma: gex.netVomma,
-            callWall: gex.callWall, putWall: gex.putWall, gammaFlip: gex.gammaFlip,
-            regime: gex.regime, topStrikes: gex.topStrikes,
-          };
+      // Hoist Greek exposure data from vector._meta.gex for discoverability
+      if (res && typeof res === 'object') {
+        // Market composite (may not have GEX)
+        if (res.market) {
+          const gex = res.market?.vector?._meta?.gex;
+          if (gex) {
+            res.market.exposures = {
+              spotPrice: gex.spotPrice,
+              netGamma: gex.netGamma, netDelta: gex.netDelta, netVega: gex.netVega,
+              netVanna: gex.netVanna, netCharm: gex.netCharm, netVomma: gex.netVomma,
+              callWall: gex.callWall, putWall: gex.putWall, gammaFlip: gex.gammaFlip,
+              regime: gex.regime,
+            };
+          }
+        }
+        // Per-symbol rows (when include_symbols=true)
+        if (res.symbols) {
+          for (const scope of Object.values(res.symbols) as any[][]) {
+            for (const row of scope) {
+              const gex = row?.vector?._meta?.gex;
+              if (gex) {
+                row.exposures = {
+                  spotPrice: gex.spotPrice,
+                  netGamma: gex.netGamma, netDelta: gex.netDelta, netVega: gex.netVega,
+                  netVanna: gex.netVanna, netCharm: gex.netCharm, netVomma: gex.netVomma,
+                  callWall: gex.callWall, putWall: gex.putWall, gammaFlip: gex.gammaFlip,
+                  regime: gex.regime,
+                };
+              }
+            }
+          }
         }
       }
       if (include_symbols) return { _skipSizeGuard: true, data: res };

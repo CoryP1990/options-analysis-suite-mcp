@@ -6,7 +6,7 @@ import { toolHandler } from '../helpers.js';
 export function register(server: McpServer, client: ProxyClient): void {
   server.tool(
     'get_options_analytics_history',
-    'Get daily end-of-day options analytics snapshots for a symbol. Covers ATM IV, HV, IV rank/percentile, VWIV, skew, GEX/DEX/VEX, put/call ratio, max pain, support/resistance walls, expected move, and term structure. Up to 5000 days of history. Use from/to for specific date ranges, or full=true for untrimmed data.',
+    'Get daily end-of-day options analytics snapshots for a symbol — historical trend data going back years. Covers ATM IV, HV, IV rank/percentile, VWIV, skew, GEX/DEX/VEX, put/call ratio, max pain, walls, expected move, and term structure. Best for trend analysis over time. For current authoritative Greek exposures (gamma, delta, vega, vanna, charm, vomma, gamma flip), use get_regime_symbol instead. Up to 5000 days. Use from/to for specific date ranges, or full=true for untrimmed data.',
     {
       symbol: z.string().describe('Ticker symbol (e.g., AAPL, SPY)'),
       days: z.number().int().min(1).max(5000).default(30).describe('Days of history (default 30). Ignored if from/to are provided.'),

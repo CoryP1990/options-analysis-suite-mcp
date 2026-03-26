@@ -34,6 +34,7 @@ import { register as activistFilings } from './market/activistFilings.js';
 import { register as webSearch } from './market/webSearch.js';
 import { register as unusualOptions } from './market/unusualOptions.js';
 import { register as companyProfile } from './market/companyProfile.js';
+import { register as regimeSymbol } from './market/regimeSymbol.js';
 
 // Platform info
 import { registerPlatformInfo } from './platformInfo.js';
@@ -54,7 +55,7 @@ export function registerAllTools(
   client: ProxyClient,
   tokenManager: TokenManager,
 ): void {
-  // Market data (26 tools including web search, unusual options, company profile)
+  // Market data (27 tools including web search, unusual options, company profile, regime symbol)
   ivHistory(server, client);
   greeksHistory(server, client);
   marketRegime(server, client);
@@ -81,6 +82,7 @@ export function registerAllTools(
   webSearch(server, client);
   unusualOptions(server, client);
   companyProfile(server, client);
+  regimeSymbol(server, client);
 
   // Platform info (1 tool)
   registerPlatformInfo(server);

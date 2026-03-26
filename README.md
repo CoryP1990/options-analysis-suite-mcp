@@ -1,6 +1,6 @@
 # Options Analysis Suite — AI Integration
 
-MCP server that gives Claude, ChatGPT, and Perplexity direct access to your options analysis data, 36 market research tools, and personalized trade recommendations.
+MCP server that gives Claude, ChatGPT, and Perplexity direct access to your options analysis data, 37 market research tools, and personalized trade recommendations.
 
 ## How It Works
 
@@ -20,11 +20,11 @@ Then it gives you a specific trade — not generic advice from a chatbot, but a 
 | **ChatGPT** | Remote HTTP (OAuth) | OAuth login flow | Settings → Developer Mode → Apps → Create |
 | **Perplexity** | Remote HTTP (API key) | base64(email:password) | Settings → MCP Connectors → Add |
 
-All three platforms access the same 36 tools and your synced analysis data.
+All three platforms access the same 37 tools and your synced analysis data.
 
 ## What the AI Can Access
 
-### Market Data (26 tools)
+### Market Data (27 tools)
 - **IV/HV History** — Historical implied and realized volatility with percentile rankings
 - **IV Surface** — Volatility skew across strikes and expirations
 - **Greeks History** — Delta, gamma, theta, vega over time
@@ -33,6 +33,7 @@ All three platforms access the same 36 tools and your synced analysis data.
 - **Stock Prices** — Historical OHLCV data
 - **Market Regime** — Stress scoring with 6 Greek exposure snapshots (gamma, delta, vega, vanna, charm, vomma)
 - **Intraday Regime** — Intraday regime scans across 5 daily intervals with Greek exposures
+- **Per-Symbol Regime & Exposures** — Regime classification with all 6 Greek exposures, gamma flip, walls, and top strikes
 - **Unusual Options Activity** — Tickers with abnormally high volume relative to open interest
 - **Company Profile** — Sector, industry, market cap, description, and key identifiers
 - **Risk-Free Rate** — Current Treasury-based rate for pricing models
@@ -75,7 +76,7 @@ To give the AI access to your personal analysis data:
 3. Toggle sync on
 4. Your analysis data will automatically sync as you use the platform
 
-Without sync enabled, the AI can still access all 26 market data tools.
+Without sync enabled, the AI can still access all 27 market data tools.
 
 ## Example Prompts
 
