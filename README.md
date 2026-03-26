@@ -1,6 +1,6 @@
 # Options Analysis Suite — AI Integration
 
-MCP server that gives Claude, ChatGPT, and Perplexity direct access to your options analysis data, 32 market research tools, and personalized trade recommendations.
+MCP server that gives Claude, ChatGPT, and Perplexity direct access to your options analysis data, 36 market research tools, and personalized trade recommendations.
 
 ## How It Works
 
@@ -20,18 +20,21 @@ Then it gives you a specific trade — not generic advice from a chatbot, but a 
 | **ChatGPT** | Remote HTTP (OAuth) | OAuth login flow | Settings → Developer Mode → Apps → Create |
 | **Perplexity** | Remote HTTP (API key) | base64(email:password) | Settings → MCP Connectors → Add |
 
-All three platforms access the same 32 tools and your synced analysis data.
+All three platforms access the same 36 tools and your synced analysis data.
 
 ## What the AI Can Access
 
-### Market Data (23 tools)
+### Market Data (26 tools)
 - **IV/HV History** — Historical implied and realized volatility with percentile rankings
 - **IV Surface** — Volatility skew across strikes and expirations
 - **Greeks History** — Delta, gamma, theta, vega over time
 - **Options Analytics History** — Daily snapshots of 20+ metrics (GEX, skew, walls, expected move, and more)
 - **Options Chain** — Full end-of-day chain with strikes, OI, volume, IV, and Greeks
 - **Stock Prices** — Historical OHLCV data
-- **Market Regime** — Stress score with drivers and confidence
+- **Market Regime** — Stress scoring with 6 Greek exposure snapshots (gamma, delta, vega, vanna, charm, vomma)
+- **Intraday Regime** — Intraday regime scans across 5 daily intervals with Greek exposures
+- **Unusual Options Activity** — Tickers with abnormally high volume relative to open interest
+- **Company Profile** — Sector, industry, market cap, description, and key identifiers
 - **Risk-Free Rate** — Current Treasury-based rate for pricing models
 - **Earnings** — EPS history, estimates, surprise percentages
 - **Analyst Data** — Ratings, price targets, consensus estimates
@@ -49,7 +52,7 @@ All three platforms access the same 32 tools and your synced analysis data.
 - **Economic Calendar** — Upcoming macro events (FOMC, CPI, NFP, etc.)
 - **Most Active Options** — Institutional flow by volume
 
-### Your Analysis Data (8 tools, requires sync enabled)
+### Your Analysis Data (9 tools, requires sync enabled)
 - **Analysis History** — Your pricing model calculations with full Greeks across all models
 - **FFT Scanner Results** — Characteristic function-based mispricing signals
 - **GEX Snapshots** — Gamma exposure, key levels, dealer positioning
@@ -58,6 +61,7 @@ All three platforms access the same 32 tools and your synced analysis data.
 - **Analysis Rollups** — Daily/weekly trend aggregates
 - **Research Notes** — Your annotations and tags
 - **Structured Queries** — Filter analyses by delta, volatility, DTE ranges
+- **Account Info** — Subscription tier, capabilities, and web search availability
 
 ### Platform Context (1 tool)
 - **Platform Info** — Pricing models, Greeks definitions, data sources
@@ -71,7 +75,7 @@ To give the AI access to your personal analysis data:
 3. Toggle sync on
 4. Your analysis data will automatically sync as you use the platform
 
-Without sync enabled, the AI can still access all 23 market data tools.
+Without sync enabled, the AI can still access all 26 market data tools.
 
 ## Example Prompts
 
