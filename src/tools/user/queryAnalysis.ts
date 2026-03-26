@@ -71,6 +71,6 @@ export function register(server: McpServer, client: ProxyClient): void {
         res._query_note = `Searched ${fetchLimit} most recent records. More records may exist that match your filters — try narrowing by symbol, model, or date range.`;
       }
       return res;
-    }),
+    }, { isSyncTool: true }),
   );
 }

@@ -9,7 +9,7 @@ export function register(server: McpServer, client: ProxyClient): void {
     'Get SEC Regulation SHO threshold list history for a symbol. Stocks appear on the threshold list when they have persistent delivery failures — a signal of extreme short selling pressure and potential forced buy-ins. Checks the last 30 trading days by default.',
     {
       symbol: z.string().describe('Ticker symbol'),
-      days: z.number().int().min(1).max(365).default(30).describe('Number of days to check (default 30)'),
+      days: z.number().int().min(1).max(90).default(30).describe('Number of days to check (default 30, max 90)'),
     },
     toolHandler(async ({ symbol, days }) => {
       // Backend requires comma-separated dates. Generate last N trading days (skip weekends).

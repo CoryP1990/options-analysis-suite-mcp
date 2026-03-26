@@ -14,6 +14,6 @@ export function register(server: McpServer, client: ProxyClient): void {
     },
     toolHandler(async ({ symbol, period, limit }) => {
       return client.get('/sync/analysis-data', { type: 'rollups', symbol, period, limit: String(limit) });
-    }),
+    }, { isSyncTool: true }),
   );
 }

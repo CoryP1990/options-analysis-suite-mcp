@@ -42,11 +42,19 @@ export class ProxyClient {
       headers['x-search-api-key'] = this.searchApiKey;
     }
 
-    const response = await fetch(url.toString(), {
-      method: 'GET',
-      headers,
-      signal: AbortSignal.timeout(30_000),
-    });
+    let response: Response;
+    try {
+      response = await fetch(url.toString(), {
+        method: 'GET',
+        headers,
+        signal: AbortSignal.timeout(30_000),
+      });
+    } catch (err: any) {
+      throw new ApiError(
+        err.name === 'TimeoutError' ? 'Proxy request timed out' : `Proxy unavailable: ${err.message}`,
+        503,
+      );
+    }
 
     return this.handleResponse<T>(response, path);
   }
@@ -58,16 +66,24 @@ export class ProxyClient {
     const url = new URL(path, this.proxyUrl);
     const token = await this.tokenManager.getAccessToken();
 
-    const response = await fetch(url.toString(), {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(30_000),
-    });
+    let response: Response;
+    try {
+      response = await fetch(url.toString(), {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(30_000),
+      });
+    } catch (err: any) {
+      throw new ApiError(
+        err.name === 'TimeoutError' ? 'Proxy request timed out' : `Proxy unavailable: ${err.message}`,
+        503,
+      );
+    }
 
     return this.handleResponse<T>(response, path);
   }

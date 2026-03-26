@@ -6,7 +6,7 @@ import { toolHandler } from '../helpers.js';
 export function register(server: McpServer, client: ProxyClient): void {
   server.tool(
     'get_greeks_history',
-    'Get historical options Greeks (delta, gamma, theta, vega) for a symbol. Shows how sensitivity profiles and dealer hedging pressure have shifted over time. Response trimmed to last 14 days and 3 nearest-ATM expirations per day; narrow start/end for specific data.',
+    'Get historical options Greeks (delta, gamma, theta, vega) for a symbol. Shows how sensitivity profiles and dealer hedging pressure have shifted over time. Response trimmed to last 14 days; narrow start/end for specific data.',
     {
       symbol: z.string().describe('Ticker symbol'),
       start: z.string().describe('Start date (YYYY-MM-DD)'),

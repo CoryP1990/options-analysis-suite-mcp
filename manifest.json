@@ -89,7 +89,8 @@
     { "name": "get_threshold_history", "description": "Get SEC Reg SHO threshold list history" },
     { "name": "get_dark_pool_data", "description": "Get FINRA OTC/dark pool and ATS trading data" },
     { "name": "get_trading_halts", "description": "Get current and recent trading halts" },
-    { "name": "get_activist_filings", "description": "Get Schedule 13D/13F activist investor filings" },
+    { "name": "get_activist_filings", "description": "Get Schedule 13D/13G activist investor filings" },
+    { "name": "get_intraday_regime", "description": "Get intraday market regime scans with Greek exposure snapshots" },
     { "name": "web_search", "description": "Search the web for real-time financial information and news" },
     { "name": "get_platform_info", "description": "Get platform background information" },
     { "name": "get_analysis_history", "description": "Get user's options pricing analysis history" },
@@ -99,7 +100,10 @@
     { "name": "get_analysis_rollups", "description": "Get user's analysis trend aggregates" },
     { "name": "get_fft_results", "description": "Get user's FFT scanner results — mispricing signals and calibration data" },
     { "name": "get_user_annotations", "description": "Get user's research notes, tags, and alerts" },
-    { "name": "query_analysis", "description": "Query analysis history with numeric filters (delta, volatility, DTE ranges)" }
+    { "name": "query_analysis", "description": "Query analysis history with numeric filters (delta, volatility, DTE ranges)" },
+    { "name": "get_account_info", "description": "Get current user's account info, subscription tier, and capabilities" },
+    { "name": "get_unusual_options", "description": "Get unusual options activity (high volume relative to open interest)" },
+    { "name": "get_company_profile", "description": "Get company profile — sector, industry, market cap, description" }
   ],
   "compatibility": {
     "platforms": ["darwin", "win32", "linux"]

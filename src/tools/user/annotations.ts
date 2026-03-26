@@ -15,6 +15,6 @@ export function register(server: McpServer, client: ProxyClient): void {
       const params: Record<string, string> = { type: 'annotations', limit: String(limit) };
       if (symbol) params.symbol = symbol;
       return client.get('/sync/analysis-data', params);
-    }),
+    }, { isSyncTool: true }),
   );
 }

@@ -13,10 +13,10 @@ type ToolResult = {
 
 /**
  * Truncates large arrays in a data object to maxItems and appends a count note.
- * Operates on top-level array values only (shallow).
+ * Recurses one level into plain objects to catch nested arrays (depth-limited to 2).
  */
-function truncateLargeArrays(data: unknown, maxItems = 50): unknown {
-  if (data === null || typeof data !== 'object') return data;
+function truncateLargeArrays(data: unknown, maxItems = 50, depth = 0): unknown {
+  if (data === null || typeof data !== 'object' || depth > 2) return data;
   // Handle root-level arrays
   if (Array.isArray(data) && data.length > maxItems) {
     return [...data.slice(-maxItems), { _note: `Truncated from ${data.length} to ${maxItems} items.` }];
@@ -28,6 +28,8 @@ function truncateLargeArrays(data: unknown, maxItems = 50): unknown {
     if (Array.isArray(value) && value.length > maxItems) {
       result[key] = value.slice(-maxItems);
       result[`_${key}_note`] = `Truncated from ${value.length} to ${maxItems} items. Request specific date range or fields for full data.`;
+    } else if (typeof value === 'object' && value !== null && !Array.isArray(value) && depth < 2) {
+      result[key] = truncateLargeArrays(value, maxItems, depth + 1);
     } else {
       result[key] = value;
     }
@@ -45,6 +47,7 @@ const MAX_RESPONSE_BYTES = 50 * 1024; // 50 KB
  */
 export function toolHandler<T extends Record<string, unknown>>(
   fn: (args: T) => Promise<unknown>,
+  opts?: { isSyncTool?: boolean },
 ): (args: T) => Promise<ToolResult> {
   return async (args: T): Promise<ToolResult> => {
     try {
@@ -55,14 +58,17 @@ export function toolHandler<T extends Record<string, unknown>>(
 
       // Check if the handler opted out of the size guard
       let skipGuard = false;
-      if (typeof data === 'object' && data !== null && '_skipSizeGuard' in (data as any)) {
+      if (typeof data === 'object' && data !== null && (data as any)?._skipSizeGuard === true) {
         skipGuard = true;
         data = (data as any).data;
       }
 
-      // Handle sync endpoint empty response
+      // Handle empty response — sync tools get a specific message
       if (typeof data === 'object' && 'data' in (data as any) && Array.isArray((data as any).data) && (data as any).data.length === 0) {
-        return { content: [{ type: 'text', text: 'No data found. If this is user analysis data, make sure MCP sync is enabled in the platform\'s Account Settings. Data syncs automatically as you use the platform.' }] };
+        const msg = opts?.isSyncTool
+          ? 'No data found. Make sure MCP sync is enabled in the platform\'s Account Settings. Data syncs automatically as you use the platform.'
+          : 'No data available for this query.';
+        return { content: [{ type: 'text', text: msg }] };
       }
 
       let json: string;
@@ -70,9 +76,9 @@ export function toolHandler<T extends Record<string, unknown>>(
         // Full mode — compact JSON to minimize token usage
         json = JSON.stringify(data);
       } else {
-        // Response size guard — truncate large arrays, then re-check size
+        // Response size guard — truncate large arrays, then compact JSON
         let processed = truncateLargeArrays(data);
-        json = JSON.stringify(processed, null, 2);
+        json = JSON.stringify(processed);
         // If still too large after array truncation, progressively shrink arrays
         if (json.length > MAX_RESPONSE_BYTES && typeof processed === 'object' && processed !== null) {
           const obj = processed as Record<string, unknown>;
@@ -82,7 +88,7 @@ export function toolHandler<T extends Record<string, unknown>>(
               obj[`_${key}_note`] = `Aggressively trimmed to most recent 5 items due to size. Request specific filters for full data.`;
             }
           }
-          json = JSON.stringify(obj, null, 2);
+          json = JSON.stringify(obj);
         }
         if (json.length > MAX_RESPONSE_BYTES) {
           json = JSON.stringify({ _error: 'Response too large. Use specific filters (symbol, date range, limit) to narrow results.', _size: `${Math.round(json.length / 1024)}KB` });

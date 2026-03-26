@@ -33,6 +33,6 @@ export function register(server: McpServer, client: ProxyClient): void {
         });
       }
       return res;
-    }),
+    }, { isSyncTool: true }),
   );
 }

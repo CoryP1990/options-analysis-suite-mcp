@@ -32,6 +32,8 @@ import { register as darkPoolData } from './market/darkPoolData.js';
 import { register as tradingHalts } from './market/tradingHalts.js';
 import { register as activistFilings } from './market/activistFilings.js';
 import { register as webSearch } from './market/webSearch.js';
+import { register as unusualOptions } from './market/unusualOptions.js';
+import { register as companyProfile } from './market/companyProfile.js';
 
 // Platform info
 import { registerPlatformInfo } from './platformInfo.js';
@@ -45,13 +47,14 @@ import { register as analysisRollups } from './user/analysisRollups.js';
 import { register as fftResults } from './user/fftResults.js';
 import { register as annotations } from './user/annotations.js';
 import { register as queryAnalysis } from './user/queryAnalysis.js';
+import { register as accountInfo } from './user/accountInfo.js';
 
 export function registerAllTools(
   server: McpServer,
   client: ProxyClient,
-  _tokenManager: TokenManager,
+  tokenManager: TokenManager,
 ): void {
-  // Market data (24 tools including web search)
+  // Market data (26 tools including web search, unusual options, company profile)
   ivHistory(server, client);
   greeksHistory(server, client);
   marketRegime(server, client);
@@ -76,11 +79,13 @@ export function registerAllTools(
   tradingHalts(server, client);
   activistFilings(server, client);
   webSearch(server, client);
+  unusualOptions(server, client);
+  companyProfile(server, client);
 
   // Platform info (1 tool)
   registerPlatformInfo(server);
 
-  // User data (8 tools — synced from browser via /sync/* endpoints)
+  // User data (9 tools — synced from browser via /sync/* endpoints + account info)
   analysisHistory(server, client);
   gexSnapshot(server, client);
   portfolioSnapshot(server, client);
@@ -89,4 +94,5 @@ export function registerAllTools(
   fftResults(server, client);
   annotations(server, client);
   queryAnalysis(server, client);
+  accountInfo(server, client, tokenManager);
 }

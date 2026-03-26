@@ -13,16 +13,33 @@ export function register(server: McpServer, client: ProxyClient): void {
     },
     toolHandler(async ({ symbol, full }) => {
       // ORATS EOD data is pulled at 1 AM ET, so the latest available chain
-      // is always the previous trading day (not today).
-      const now = new Date();
-      const day = now.getUTCDay();
-      let daysBack = 1;
-      if (day === 0) daysBack = 2;      // Sunday → Friday
-      else if (day === 1) daysBack = 3;  // Monday → Friday
-      else if (day === 6) daysBack = 1;  // Saturday → Friday
-      const prev = new Date(now);
-      prev.setDate(prev.getDate() - daysBack);
-      const date = prev.toISOString().split('T')[0];
+      // is always the previous trading day. Before 1 AM ET, go back an extra
+      // trading day since that day's data isn't available yet.
+      // Use ET timezone via Intl to handle DST transitions correctly.
+      const etFmt = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/New_York',
+        year: 'numeric', month: '2-digit', day: '2-digit', hour: 'numeric', hour12: false,
+      });
+      const etParts = etFmt.formatToParts(new Date());
+      const etYear = Number(etParts.find(p => p.type === 'year')!.value);
+      const etMonth = Number(etParts.find(p => p.type === 'month')!.value);
+      const etDayNum = Number(etParts.find(p => p.type === 'day')!.value);
+      const etHour = Number(etParts.find(p => p.type === 'hour')!.value);
+      // Use Date.UTC to avoid host-timezone drift on stdio installs
+      const etDate = new Date(Date.UTC(etYear, etMonth - 1, etDayNum));
+      // Before 1 AM ET on Tue-Fri, today's ORATS data isn't available — need one extra trading day back.
+      // Mon/Sat/Sun already point to Friday regardless of hour (weekend = no new data to wait for).
+      const dow = etDate.getUTCDay(); // 0=Sun, 1=Mon, 6=Sat
+      const preOrats = etHour < 1 && dow >= 2 && dow <= 5; // Tue-Fri before 1 AM
+      const tradingDaysBack = preOrats ? 2 : 1;
+      // Subtract N trading days (skip weekends)
+      let remaining = tradingDaysBack;
+      while (remaining > 0) {
+        etDate.setUTCDate(etDate.getUTCDate() - 1);
+        const dow = etDate.getUTCDay();
+        if (dow !== 0 && dow !== 6) remaining--;
+      }
+      const date = etDate.toISOString().split('T')[0];
 
       const res = await client.get('/scanner/options-chain', {
         ticker: symbol.toUpperCase(),

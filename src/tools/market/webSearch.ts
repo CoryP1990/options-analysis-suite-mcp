@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ProxyClient } from '../../proxy/proxyClient.js';
+import { toolHandler } from '../helpers.js';
 
 export function register(server: McpServer, client: ProxyClient): void {
   server.tool(
@@ -18,13 +19,19 @@ export function register(server: McpServer, client: ProxyClient): void {
           isError: true,
         };
       }
-      try {
-        const data = await client.get('/ai/search', { q: query, count: String(count), freshness });
-        if (!data) return { content: [{ type: 'text' as const, text: 'No search results found.' }] };
-        return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] };
-      } catch (err: any) {
-        return { content: [{ type: 'text' as const, text: `Search failed: ${err.message}` }], isError: true };
-      }
+      // Use toolHandler for error handling and size guard
+      return toolHandler(async () => {
+        const data = await client.get('/ai/search', { q: query, count: String(count), freshness }) as any;
+        if (!data) return null;
+        // Trim to essential fields for token efficiency
+        const results = (data.web?.results || data.results || []).map((r: any) => ({
+          title: r.title,
+          url: r.url,
+          description: r.description || r.snippet,
+          age: r.age || r.published_date,
+        }));
+        return { query, results };
+      })({} as any);
     },
   );
 }
