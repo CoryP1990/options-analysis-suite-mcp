@@ -2,15 +2,17 @@
 
 MCP server that gives Claude, ChatGPT, and Perplexity direct access to your options analysis data, 44 tools, and personalized trade recommendations.
 
-## How It Works
+## How It Works in Practice
 
-You're running an FFT mispricing scan across your portfolio tickers. On another tab, you've got the GEX chart open and you're watching dealer positioning shift. You run a Heston calibration on NVDA and the model says calls are 12% cheap relative to the surface. Your portfolio is long delta and you're not sure if you should hedge or press.
+You're running an FFT mispricing scan across your portfolio tickers. On another tab, you've got the GEX chart open for SPY and you're watching dealer positioning shift. You run a Heston calibration on NVDA and the model says calls are 12% cheap relative to the surface. Your portfolio is long delta and you're not sure if you should hedge or press.
 
-Ask the AI: *"Based on my current positions and risk profile, what should I do about NVDA?"*
+Ask the AI: "Based on my current positions and risk profile, what should I do about NVDA?"
 
 It already knows. It pulls your portfolio snapshot — every position, every Greek, your net delta and gamma exposure. It sees the FFT scan flagging NVDA calls as underpriced. It checks your risk analysis — your VaR, your beta exposure, your stress test results. It reads the market regime score and sees we're in a normal environment. It pulls NVDA's IV percentile, the earnings date, analyst consensus, insider activity, and short interest.
 
-Then it gives you a specific trade — not generic advice from a chatbot, but a recommendation grounded in your actual data.
+Then it gives you a specific trade: "Sell the April 185 put to fund the April 195/210 call spread — your FFT scan confirms the calls are cheap, your portfolio needs more upside exposure, and earnings are 3 weeks out so you'll capture the IV crush on the short put." That's not generic advice from a chatbot. That's a copilot that's looking at your screens.
+
+No copy-pasting data between tabs. No explaining your portfolio to the AI. No context-switching. Every calculation you've run, every snapshot you've taken, every risk metric you've computed — the AI sees it all, in real time, and gives you actionable recommendations grounded in your actual data.
 
 ## Supported Platforms
 
@@ -108,16 +110,18 @@ To give the assistant access to your personal analysis data:
 
 Without sync enabled, the assistant can still use the market and research tools.
 
-## Example Prompts
+## Example questions you can ask:
 
-- "What's the current IV percentile for AAPL and how does it compare to the last 6 months?"
-- "According to my Variance Gamma and Black-Scholes calculations for GOOG, what do the Greeks say I'll lose over the weekend?"
-- "My portfolio delta is +450 — given the current regime and META earnings next week, should I hedge?"
-- "Compare the dark pool activity and short interest trend for AMD"
-- "Show me all my analyses where volatility was above 40% in the last two weeks"
+- "According to my Variance Gamma and Black-Scholes calculations for GOOG, what do the Greeks say I'll lose on my position over the weekend?"
+- "Compare my Heston vs SABR calibrations for SPY — which model fits the current skew better and what does that imply for my put spreads?"
+- "My portfolio delta is showing +450 — given the current market regime and META earnings next week, should I hedge? What structure would you recommend?"
+- "Look at my GEX analysis for TSLA — where are the key gamma walls and what happens to my position if we break through the put wall?"
+- "Show me all my analyses where volatility was above 40% in the last two weeks. Were any of those good short vol entries?"
+- "What's the theta decay on my NVDA straddle through the weekend and into Monday's economic data releases?"
+- "Compare the dark pool activity and short interest trend for AMD — is institutional flow confirming or contradicting the bullish options skew?"
+- "Based on my risk metrics and current VaR, how much would a 2008-style stress event impact my portfolio?"
 - "Is META IV expensive right now? Should I be buying or selling options?"
-- "What's the theta decay on my NVDA straddle through the weekend?"
-- "Based on my risk metrics, how would a 2008-style event impact my portfolio?"
+- "Explain what my Heston calibration results mean in plain English"
 
 ## Privacy
 
