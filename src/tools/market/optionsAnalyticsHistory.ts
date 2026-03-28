@@ -2,11 +2,15 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ProxyClient } from '../../proxy/proxyClient.js';
 import { toolHandler } from '../helpers.js';
+import {
+  shouldSummarizeOptionsAnalyticsHistory,
+  summarizeOptionsAnalyticsHistory,
+} from './optionsAnalyticsHistoryShaping.js';
 
 export function register(server: McpServer, client: ProxyClient): void {
   server.tool(
     'get_options_analytics_history',
-    'Get daily end-of-day options analytics snapshots for a symbol — historical trend data going back years. Covers ATM IV, HV, IV rank/percentile, VWIV, skew, GEX/DEX/VEX, put/call ratio, max pain, walls, expected move, and term structure. Best for trend analysis over time. For current authoritative Greek exposures (gamma, delta, vega, vanna, charm, vomma, gamma flip), use get_regime_symbol instead. Up to 5000 days. Use from/to for specific date ranges, or full=true for untrimmed data.',
+    'Get daily end-of-day options analytics snapshots for a symbol — historical trend data going back years. Covers ATM IV, HV, IV rank/percentile, VWIV, skew, GEX/DEX/VEX, net vanna/charm/vomma, put/call ratio, max pain, expected move, term structure, dividend yield, and risk-free rate. Best for trend analysis over time. For current authoritative Greek exposures and dealer-positioning levels like call wall, put wall, and gamma flip, use get_regime_symbol instead. Up to 5000 days. Large windows return a compact recent/trend summary by default; use from/to or full=true for raw history.',
     {
       symbol: z.string().describe('Ticker symbol (e.g., AAPL, SPY)'),
       days: z.number().int().min(1).max(5000).default(30).describe('Days of history (default 30). Ignored if from/to are provided.'),
@@ -50,6 +54,10 @@ export function register(server: McpServer, client: ProxyClient): void {
       const res = await client.get('/history', params) as any;
 
       if (full && res != null) return { _skipSizeGuard: true, data: res };
+
+      if (shouldSummarizeOptionsAnalyticsHistory(res)) {
+        return summarizeOptionsAnalyticsHistory(res);
+      }
 
       // Only trim when using defaults (no explicit from/to) — if user specified range, return full data
       if (!fromDate && !toDate && days === 30) {

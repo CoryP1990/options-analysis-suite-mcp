@@ -2,6 +2,8 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ProxyClient } from '../../proxy/proxyClient.js';
 import { toolHandler } from '../helpers.js';
+import { stripSyncRecordMetadata } from './syncResponseShaping.js';
+import { shapeAnnotationsResponse } from './annotationsShaping.js';
 
 export function register(server: McpServer, client: ProxyClient): void {
   server.tool(
@@ -14,7 +16,11 @@ export function register(server: McpServer, client: ProxyClient): void {
     toolHandler(async ({ symbol, limit }) => {
       const params: Record<string, string> = { type: 'annotations', limit: String(limit) };
       if (symbol) params.symbol = symbol;
-      return client.get('/sync/analysis-data', params);
+      const res = await client.get('/sync/analysis-data', params) as any;
+      if (res && Array.isArray(res.data)) {
+        for (const record of res.data) stripSyncRecordMetadata(record);
+      }
+      return shapeAnnotationsResponse(res);
     }, { isSyncTool: true }),
   );
 }

@@ -9,8 +9,12 @@
   },
   "scripts": {
     "start": "bun src/index.ts",
+    "start:remote": "bun src/remote.ts",
     "build": "bun build.ts",
-    "dev": "bun --watch src/index.ts"
+    "build:remote": "bun build.ts --remote",
+    "dev": "bun --watch src/index.ts",
+    "dev:remote": "bun --watch src/remote.ts",
+    "test": "bun test"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.27.1",

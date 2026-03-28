@@ -2,16 +2,20 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ProxyClient } from '../../proxy/proxyClient.js';
 import { toolHandler } from '../helpers.js';
+import { summarizeIvSurface } from './ivSurfaceShaping.js';
 
 export function register(server: McpServer, client: ProxyClient): void {
   server.tool(
     'get_iv_surface',
-    'Get the IV surface/skew across strikes and expirations for a symbol. End-of-day data from the previous trading session. Useful for analyzing volatility smile/smirk, identifying mispriced strikes, and comparing term structure across expirations.',
+    'Get the IV surface/skew across strikes and expirations for a symbol. End-of-day data from the previous trading session. Default response returns a compact term-structure and smile summary; use full=true for the raw surface grid.',
     {
       symbol: z.string().describe('Ticker symbol (e.g., AAPL, SPY)'),
+      full: z.boolean().optional().describe('Return the full raw IV surface grid and bypass the size guard.'),
     },
-    toolHandler(async ({ symbol }) => {
-      return client.get(`/scanner/iv-surface/${encodeURIComponent(symbol.toUpperCase())}`);
+    toolHandler(async ({ symbol, full }) => {
+      const res = await client.get(`/scanner/iv-surface/${encodeURIComponent(symbol.toUpperCase())}`);
+      if (full) return { _skipSizeGuard: true, data: res };
+      return summarizeIvSurface(res);
     }),
   );
 }

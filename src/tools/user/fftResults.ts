@@ -2,6 +2,8 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ProxyClient } from '../../proxy/proxyClient.js';
 import { toolHandler } from '../helpers.js';
+import { TRUNCATION_THRESHOLD, shapeRecord, truncateRecord } from './fftResponseShaping.js';
+import { stripSyncRecordMetadata } from './syncResponseShaping.js';
 
 export function register(server: McpServer, client: ProxyClient): void {
   server.tool(
@@ -19,18 +21,18 @@ export function register(server: McpServer, client: ProxyClient): void {
       if (since) params.since = since;
       const res = await client.get('/sync/analysis-data', params) as any;
       if (full && res != null) return { _skipSizeGuard: true, data: res };
-      // Flatten deeply nested data objects for readability
+
       if (res && Array.isArray(res.data)) {
-        res.data = res.data.map((record: any) => {
-          if (record.data && typeof record.data === 'object') {
-            record.data = Object.fromEntries(
-              Object.entries(record.data).map(([k, v]) =>
-                [k, typeof v === 'object' && v !== null && !Array.isArray(v) ? '[nested object]' : v]
-              )
-            );
-          }
-          return record;
-        });
+        // Pass 1: flatten nested objects, preserving calibration/summary/bestValues
+        for (const record of res.data) {
+          stripSyncRecordMetadata(record);
+          shapeRecord(record);
+        }
+
+        // Pass 2: only truncate large arrays if response exceeds size threshold
+        if (JSON.stringify(res).length > TRUNCATION_THRESHOLD) {
+          for (const record of res.data) truncateRecord(record);
+        }
       }
       return res;
     }, { isSyncTool: true }),

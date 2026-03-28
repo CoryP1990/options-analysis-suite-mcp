@@ -2,11 +2,14 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ProxyClient } from '../../proxy/proxyClient.js';
 import { toolHandler } from '../helpers.js';
+import { shapeMarketRegimeResponse } from './marketRegimeShaping.js';
+
+const STRESS_SCORE_NOTE = 'stress_score is a raw composite regime score, not a 0-100 index. Typical bands: CALM < -0.5, NORMAL -0.5 to 0.5, ELEVATED 0.5 to 1.5, STRESS 1.5 to 2.5, CRISIS >= 2.5.';
 
 export function register(server: McpServer, client: ProxyClient): void {
   server.tool(
     'get_market_regime',
-    'Get the MARKET COMPOSITE stress regime — an aggregate score across SPY/QQQ/IWM/DIA, not per-symbol data. Returns composite stress score (0-100), confidence, and key drivers (VIX, credit spreads, yield curve, correlation, breadth). Above 60 = elevated stress. Below 30 = calm. For per-symbol regime and Greek exposures (gamma, delta, vega, vanna, charm, vomma, walls, gamma flip), use get_regime_symbol instead. Use include_symbols=true to get all 124 per-symbol breakdowns.',
+    'Get the MARKET COMPOSITE stress regime — an aggregate score across SPY/QQQ/IWM/DIA, not per-symbol data. Returns a compact default summary with the raw composite stress score on a z-score-like scale, confidence, key drivers, and feature z-scores. Typical bands: CALM < -0.5, NORMAL -0.5 to 0.5, ELEVATED 0.5 to 1.5, STRESS 1.5 to 2.5, CRISIS >= 2.5. For per-symbol regime and Greek exposures (gamma, delta, vega, vanna, charm, vomma, walls, gamma flip), use get_regime_symbol instead. Use include_symbols=true to get all 124 per-symbol breakdowns and the full raw regime payload.',
     {
       date: z.string().optional().describe('Specific date (YYYY-MM-DD), defaults to latest'),
       include_symbols: z.boolean().optional().describe('Include per-symbol regime breakdowns (~180KB). Default false — returns market summary only.'),
@@ -18,6 +21,7 @@ export function register(server: McpServer, client: ProxyClient): void {
       if (res && typeof res === 'object') {
         // Market composite (may not have GEX)
         if (res.market) {
+          res.market._stress_score_note = STRESS_SCORE_NOTE;
           const gex = res.market?.vector?._meta?.gex;
           if (gex) {
             res.market.exposures = {
@@ -31,6 +35,7 @@ export function register(server: McpServer, client: ProxyClient): void {
         }
         // Per-symbol rows (when include_symbols=true)
         if (res.symbols) {
+          res._stress_score_note = STRESS_SCORE_NOTE;
           for (const scope of Object.values(res.symbols) as any[][]) {
             for (const row of scope) {
               const gex = row?.vector?._meta?.gex;
@@ -49,7 +54,7 @@ export function register(server: McpServer, client: ProxyClient): void {
       }
       if (include_symbols) return { _skipSizeGuard: true, data: res };
       if (res && typeof res === 'object' && 'market' in res) {
-        return { market: res.market };
+        return shapeMarketRegimeResponse({ market: res.market });
       }
       return res;
     }),

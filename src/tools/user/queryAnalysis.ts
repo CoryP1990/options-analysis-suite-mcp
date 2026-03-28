@@ -2,11 +2,16 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ProxyClient } from '../../proxy/proxyClient.js';
 import { toolHandler } from '../helpers.js';
+import {
+  compactAnalysisHistoryResponse,
+  dedupeAnalysisHistoryRecords,
+  shapeAnalysisResultRecord,
+} from './syncResponseShaping.js';
 
 export function register(server: McpServer, client: ProxyClient): void {
   server.tool(
     'query_analysis',
-    'Query your analysis history with filters. Find specific analyses by greek values, volatility ranges, or other criteria. For example: "analyses where delta > 0.7" or "all Heston runs with IV below 30%".',
+    'Query your analysis history with filters. Find specific analyses by greek values, volatility ranges, or other criteria. For example: "analyses where delta > 0.7" or "all Heston runs with IV below 30%". Default view collapses near-identical reruns from the same pricing sweep so the results stay diverse and readable.',
     {
       symbol: z.string().optional().describe('Filter by ticker symbol'),
       model: z.string().optional().describe('Filter by pricing model (e.g., BlackScholes, Heston)'),
@@ -35,15 +40,20 @@ export function register(server: McpServer, client: ProxyClient): void {
         minDte !== undefined || maxDte !== undefined;
 
       if (!hasNumericFilters) {
-        // No numeric filters — just trim to requested limit
-        res.data = res.data.slice(0, limit);
+        const deduped = dedupeAnalysisHistoryRecords(res.data, limit);
+        res.data = deduped.records;
         res.count = res.data.length;
+        if (deduped.omittedCount > 0) {
+          res._dedupe_note = `Collapsed ${deduped.omittedCount} near-identical reruns from the default view.`;
+        }
+        for (const record of res.data) shapeAnalysisResultRecord(record);
+        compactAnalysisHistoryResponse(res);
         return res;
       }
 
       // Client-side filtering on numeric fields from record.data and record.facts
       const fetchedAll = res.data.length < fetchLimit;
-      res.data = res.data.filter((record: any) => {
+      const filtered = res.data.filter((record: any) => {
         const data = record.data || {};
         const facts = record.facts || {};
         const greeks = data.greeks || {};
@@ -64,9 +74,17 @@ export function register(server: McpServer, client: ProxyClient): void {
         if (maxDte !== undefined && (dte == null || dte > maxDte)) return false;
 
         return true;
-      }).slice(0, limit);
+      });
+
+      const deduped = dedupeAnalysisHistoryRecords(filtered, limit);
+      res.data = deduped.records;
 
       res.count = res.data.length;
+      if (deduped.omittedCount > 0) {
+        res._dedupe_note = `Collapsed ${deduped.omittedCount} near-identical reruns from the filtered results.`;
+      }
+      for (const record of res.data) shapeAnalysisResultRecord(record);
+      compactAnalysisHistoryResponse(res);
       if (!fetchedAll && res.data.length < limit) {
         res._query_note = `Searched ${fetchLimit} most recent records. More records may exist that match your filters — try narrowing by symbol, model, or date range.`;
       }

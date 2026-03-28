@@ -2,30 +2,30 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ProxyClient } from '../../proxy/proxyClient.js';
 import { toolHandler } from '../helpers.js';
+import { shouldSummarizeIvHistory, summarizeIvHistory, trimIvHistoryToRecent } from './ivHistoryShaping.js';
 
 export function register(server: McpServer, client: ProxyClient): void {
   server.tool(
     'get_iv_history',
-    'Get historical implied volatility (IV) and historical volatility (HV) for a stock or ETF. Shows how option-implied expected moves and realized moves have evolved. High IV relative to HV suggests options are expensive; low IV relative to HV suggests options are cheap.',
+    'Get historical implied volatility (IV) and historical volatility (HV) for a stock or ETF. Shows how option-implied expected moves and realized moves have evolved. High IV relative to HV suggests options are expensive; low IV relative to HV suggests options are cheap. Large windows return a compact recent/trend summary by default; use full=true for the raw history.',
     {
       symbol: z.string().describe('Ticker symbol (e.g., AAPL, SPY)'),
-      days: z.number().int().min(1).max(1095).default(90).describe('Days of history (default 90). Default response returns the 30 most recent entries; set days explicitly for full data.'),
+      days: z.number().int().min(1).max(1095).default(90).describe('Days of history (default 90). The default 90-day view returns the 30 most recent entries; larger windows may be summarized unless full=true.'),
+      full: z.boolean().optional().describe('Return the full raw IV history and bypass the response size guard.'),
     },
-    toolHandler(async ({ symbol, days }) => {
+    toolHandler(async ({ symbol, days, full }) => {
       const res = await client.get('/scanner/history', { symbol: symbol.toUpperCase(), days: String(days) }) as any;
-      // Only trim when using the default 90 — if user explicitly requested a value, return it all
+      if (full) return { _skipSizeGuard: true, data: res };
+
       if (days === 90) {
-        const cap = 30;
-        if (res && Array.isArray(res.data) && res.data.length > cap) {
-          res._data_note = `Trimmed from ${res.data.length} to most recent ${cap} entries. Set days explicitly for full data.`;
-          res.data = res.data.slice(-cap);
-        }
-        if (res && Array.isArray(res.history) && res.history.length > cap) {
-          res._history_note = `Trimmed from ${res.history.length} to most recent ${cap} entries. Set days explicitly for full data.`;
-          res.history = res.history.slice(-cap);
-        }
+        return trimIvHistoryToRecent(res, 30);
       }
-      return res;
+
+      if (shouldSummarizeIvHistory(res)) {
+        return summarizeIvHistory(res);
+      }
+
+      return trimIvHistoryToRecent(res, Number.MAX_SAFE_INTEGER);
     }),
   );
 }

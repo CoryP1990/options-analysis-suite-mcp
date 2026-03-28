@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ProxyClient } from '../../proxy/proxyClient.js';
 import { toolHandler } from '../helpers.js';
+import { summarizeEarnings } from './earningsShaping.js';
 
 export function register(server: McpServer, client: ProxyClient): void {
   server.tool(
@@ -12,12 +13,7 @@ export function register(server: McpServer, client: ProxyClient): void {
     },
     toolHandler(async ({ symbol }) => {
       const res = await client.get(`/earnings/${encodeURIComponent(symbol.toUpperCase())}`) as any;
-      // Backend returns earnings_history array — cap to last 8 quarters
-      if (res && Array.isArray(res.earnings_history) && res.earnings_history.length > 8) {
-        res._earnings_history_note = `Showing last 8 of ${res.earnings_history.length} quarters.`;
-        res.earnings_history = res.earnings_history.slice(0, 8);
-      }
-      return res;
+      return summarizeEarnings(res, 8);
     }),
   );
 }

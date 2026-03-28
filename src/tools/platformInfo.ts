@@ -33,10 +33,10 @@ const PLATFORM_INFO: Record<string, string> = {
 
   data_sources: `Platform Data Sources:
 - Options chains & Greeks: Tradier API (real-time quotes, historical)
-- Fundamentals: Financial Modeling Prep (financials, earnings, analyst data, insider trading)
+- Fundamentals & corporate actions: Financial Modeling Prep (financials, earnings, analyst data, insider trading, dividends, splits, IPO/dividend/split calendars)
 - Treasury/Economic: FRED (Federal Reserve Economic Data, yield curves)
 - Short volume: FINRA daily short volume reports
-- SEC filings: EDGAR (Form 4 insider, 13D/G activist, fail-to-deliver)
+- SEC filings: EDGAR (recent company filings, Form 4 insider, 13D/G activist, fail-to-deliver)
 - Market regime: Proprietary composite score (VIX, credit spreads, breadth, correlation, tail risk)
 - News: Aggregated financial news via multiple sources
 - GEX data: Computed from options chain (gamma/delta exposure by strike)`,
@@ -48,7 +48,7 @@ const PLATFORM_INFO: Record<string, string> = {
 - FFT Options Scanner: frequency-domain mispricing detection across entire chains
 - Analysis history: all pricing calculations stored locally, synced for AI analysis
 - Structured queries: "show analyses where delta > 0.8 last month" via RAG
-- Market regime: composite stress score (0-100) with confidence and drivers`,
+- Market regime: raw composite stress score (z-style bands) with confidence and drivers`,
 };
 
 export function registerPlatformInfo(server: McpServer): void {

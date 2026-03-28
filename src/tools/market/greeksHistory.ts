@@ -2,24 +2,41 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ProxyClient } from '../../proxy/proxyClient.js';
 import { toolHandler } from '../helpers.js';
+import {
+  shouldSummarizeGreeksHistory,
+  summarizeGreeksHistory,
+  trimGreeksHistoryToRecent,
+} from './greeksHistoryShaping.js';
 
 export function register(server: McpServer, client: ProxyClient): void {
   server.tool(
     'get_greeks_history',
-    'Get historical options Greeks (delta, gamma, theta, vega) for a symbol. Shows how sensitivity profiles and dealer hedging pressure have shifted over time. Response trimmed to last 14 days; narrow start/end for specific data.',
+    'Get historical options Greeks (delta, gamma, theta, vega) for a symbol. Shows how sensitivity profiles and dealer hedging pressure have shifted over time. Large windows return a compact recent/trend summary by default; use dteMin/dteMax, moneyness, or full=true for raw detail.',
     {
       symbol: z.string().describe('Ticker symbol'),
       start: z.string().describe('Start date (YYYY-MM-DD)'),
       end: z.string().describe('End date (YYYY-MM-DD)'),
+      dteMin: z.number().int().min(0).optional().describe('Minimum days to expiration filter. Default 0.'),
+      dteMax: z.number().int().min(0).optional().describe('Maximum days to expiration filter. Default 999.'),
+      moneyness: z.enum(['all', 'atm', 'otm', 'itm']).optional().describe('Filter strikes by delta-based moneyness bucket. Default all.'),
+      full: z.boolean().optional().describe('Return the full raw Greeks history and bypass response shaping.'),
     },
-    toolHandler(async ({ symbol, start, end }) => {
-      const res = await client.get(`/scanner/greeks-history/${encodeURIComponent(symbol.toUpperCase())}`, { start, end }) as any;
-      // Backend returns data as a flat array of daily records — cap to last 14 entries
-      if (res && Array.isArray(res.data) && res.data.length > 14) {
-        res._data_note = `Trimmed from ${res.data.length} to last 14 days. Narrow start/end dates for specific data.`;
-        res.data = res.data.slice(-14);
+    toolHandler(async ({ symbol, start, end, dteMin, dteMax, moneyness, full }) => {
+      const res = await client.get(`/scanner/greeks-history/${encodeURIComponent(symbol.toUpperCase())}`, {
+        start,
+        end,
+        dteMin: String(dteMin ?? 0),
+        dteMax: String(dteMax ?? 999),
+        moneyness: moneyness ?? 'all',
+      }) as any;
+
+      if (full) return { _skipSizeGuard: true, data: res };
+
+      if (shouldSummarizeGreeksHistory(res)) {
+        return summarizeGreeksHistory(res);
       }
-      return res;
+
+      return trimGreeksHistoryToRecent(res, Number.MAX_SAFE_INTEGER);
     }),
   );
 }

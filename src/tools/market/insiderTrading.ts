@@ -2,22 +2,24 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ProxyClient } from '../../proxy/proxyClient.js';
 import { toolHandler } from '../helpers.js';
+import { shapeInsiderTradingResponse } from './insiderTradingShaping.js';
 
 export function register(server: McpServer, client: ProxyClient): void {
   server.tool(
     'get_insider_trading',
-    'Get SEC Form 4 insider trading filings for a company. Shows recent purchases and sales by officers, directors, and 10% holders. Cluster buying by insiders (especially after an IV spike) can signal puts are overpriced. Returns 10 most recent trades by default; request more with specific date range if needed.',
+    'Get insider trading activity for a company. Default response focuses on economically meaningful open-market buys and sells, groups repeated filing rows into event-level summaries, and summarizes awards/exercises/tax withholding separately. Use full=true for the raw recent feed.',
     {
       symbol: z.string().describe('Ticker symbol'),
+      full: z.boolean().optional().describe('Return the raw insider-trading feed without MCP response shaping.'),
     },
-    toolHandler(async ({ symbol }) => {
-      const res = await client.get(`/insider-trading/${encodeURIComponent(symbol.toUpperCase())}`) as any;
-      // Backend returns insider_trades array — cap to 10 most recent
-      if (res && Array.isArray(res.insider_trades) && res.insider_trades.length > 10) {
-        res._insider_trades_note = `Showing 10 most recent of ${res.insider_trades.length} filings.`;
-        res.insider_trades = res.insider_trades.slice(0, 10);
-      }
-      return res;
+    toolHandler(async ({ symbol, full }) => {
+      const upperSymbol = encodeURIComponent(symbol.toUpperCase());
+      const [res, companyProfile] = await Promise.all([
+        client.get(`/insider-trading/${upperSymbol}`) as Promise<any>,
+        client.get(`/company-profile/${upperSymbol}`).catch(() => null),
+      ]);
+      if (full) return { _skipSizeGuard: true, data: res };
+      return shapeInsiderTradingResponse(res, companyProfile);
     }),
   );
 }

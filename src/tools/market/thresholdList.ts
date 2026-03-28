@@ -2,16 +2,18 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ProxyClient } from '../../proxy/proxyClient.js';
 import { toolHandler } from '../helpers.js';
+import { summarizeThresholdHistory } from './thresholdHistoryShaping.js';
 
 export function register(server: McpServer, client: ProxyClient): void {
   server.tool(
     'get_threshold_history',
-    'Get SEC Regulation SHO threshold list history for a symbol. Stocks appear on the threshold list when they have persistent delivery failures — a signal of extreme short selling pressure and potential forced buy-ins. Checks the last 30 trading days by default.',
+    'Get SEC Regulation SHO threshold-list history for a symbol with a compact status summary by default. Highlights whether the symbol is currently on the list, recently cleared, or only appeared historically in the requested window. Use full=true for the raw date list.',
     {
       symbol: z.string().describe('Ticker symbol'),
       days: z.number().int().min(1).max(90).default(30).describe('Number of days to check (default 30, max 90)'),
+      full: z.boolean().optional().describe('Return the raw threshold-history payload instead of the compact summary.'),
     },
-    toolHandler(async ({ symbol, days }) => {
+    toolHandler(async ({ symbol, days, full }) => {
       // Backend requires comma-separated dates. Generate last N trading days (skip weekends).
       const dates: string[] = [];
       const d = new Date();
@@ -22,9 +24,13 @@ export function register(server: McpServer, client: ProxyClient): void {
           dates.push(d.toISOString().split('T')[0]);
         }
       }
-      return client.get(`/sec/threshold-history/${encodeURIComponent(symbol.toUpperCase())}`, {
+      const response = await client.get(`/sec/threshold-history/${encodeURIComponent(symbol.toUpperCase())}`, {
         dates: dates.join(','),
       });
+      if (full) {
+        return { _skipSizeGuard: true, data: response };
+      }
+      return summarizeThresholdHistory(response as Record<string, unknown>, dates);
     }),
   );
 }

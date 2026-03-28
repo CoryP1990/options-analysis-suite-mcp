@@ -2,16 +2,25 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ProxyClient } from '../../proxy/proxyClient.js';
 import { toolHandler } from '../helpers.js';
+import { summarizeFailToDeliver } from './failToDeliverShaping.js';
 
 export function register(server: McpServer, client: ProxyClient): void {
   server.tool(
     'get_fail_to_deliver',
-    'Get SEC Failure-to-Deliver (FTD) data for a symbol. High FTD counts can indicate naked short selling, settlement issues, or hard-to-borrow conditions that affect options pricing and short squeeze potential.',
+    'Get SEC Failure-to-Deliver (FTD) data for a symbol. Default response returns a compact summary with recent history, notable spikes, and threshold overlap; use full=true for the raw history. Default window is 180 days because SEC FTD publication lags by about 21 days.',
     {
       symbol: z.string().describe('Ticker symbol'),
+      days: z.number().int().min(1).max(1095).default(180).describe('Number of calendar days to return. Default 180 because FTD publication lags by about 21 days.'),
+      full: z.boolean().optional().describe('Return the raw FTD history instead of the compact summary.'),
     },
-    toolHandler(async ({ symbol }) => {
-      return client.get(`/sec/fail-to-deliver/${encodeURIComponent(symbol.toUpperCase())}`);
+    toolHandler(async ({ symbol, days, full }) => {
+      const response = await client.get(`/sec/fail-to-deliver/${encodeURIComponent(symbol.toUpperCase())}`, {
+        days: String(days),
+      });
+      if (full) {
+        return { _skipSizeGuard: true, data: response };
+      }
+      return summarizeFailToDeliver(response);
     }),
   );
 }

@@ -3,6 +3,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ProxyClient } from '../../proxy/proxyClient.js';
 import { toolHandler } from '../helpers.js';
 import { AuthError, SubscriptionError } from '../../types.js';
+import { summarizeDarkPoolResponse } from './darkPoolDataShaping.js';
 
 type FetchResult = { kind: 'ok'; data: any } | { kind: 'missing' } | { kind: 'failed'; error: string };
 
@@ -20,11 +21,12 @@ async function safeGet(client: ProxyClient, path: string): Promise<FetchResult> 
 export function register(server: McpServer, client: ProxyClient): void {
   server.tool(
     'get_dark_pool_data',
-    'Get FINRA OTC (dark pool) trading data and ATS (Alternative Trading System) statistics for a symbol. Shows off-exchange volume, dark pool participation rates, and which ATSes are most active. High dark pool activity can signal institutional accumulation or distribution.',
+    'Get FINRA OTC (dark pool) and ATS (Alternative Trading System) trading statistics for a symbol. Default response returns recent weekly volume/trade trends plus compact summaries; use full=true for the raw weekly history. High dark pool activity can signal institutional accumulation or distribution.',
     {
       symbol: z.string().describe('Ticker symbol'),
+      full: z.boolean().optional().describe('Return the full raw OTC and ATS weekly history and bypass the size guard.'),
     },
-    toolHandler(async ({ symbol }) => {
+    toolHandler(async ({ symbol, full }) => {
       const sym = encodeURIComponent(symbol.toUpperCase());
       const [otcResult, atsResult] = await Promise.all([
         safeGet(client, `/finra/otc-trading/${sym}`),
@@ -40,7 +42,8 @@ export function register(server: McpServer, client: ProxyClient): void {
       else result._otc_note = otcResult.kind === 'failed' ? `OTC data unavailable: ${otcResult.error}` : 'No OTC data for this symbol';
       if (atsResult.kind === 'ok') result.atsData = atsResult.data;
       else result._ats_note = atsResult.kind === 'failed' ? `ATS data unavailable: ${atsResult.error}` : 'No ATS data for this symbol';
-      return result;
+      if (full) return { _skipSizeGuard: true, data: result };
+      return summarizeDarkPoolResponse(result);
     }),
   );
 }

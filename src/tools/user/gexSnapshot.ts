@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ProxyClient } from '../../proxy/proxyClient.js';
 import { toolHandler } from '../helpers.js';
+import { replaceDuplicatedDataField, stripSyncRecordMetadata } from './syncResponseShaping.js';
 
 export function register(server: McpServer, client: ProxyClient): void {
   server.tool(
@@ -19,6 +20,7 @@ export function register(server: McpServer, client: ProxyClient): void {
       // Key GEX fields (gammaFlip, callWall, putWall) live on the summary record (record.data), not details
       if (res && Array.isArray(res.data)) {
         res.data = res.data.map((record: any) => {
+          stripSyncRecordMetadata(record);
           if (record.details && typeof record.details === 'object') {
             const d = record.details;
             // Details is an array of per-expiration breakdowns — summarize
@@ -35,6 +37,7 @@ export function register(server: McpServer, client: ProxyClient): void {
               record.details = summary;
             }
           }
+          replaceDuplicatedDataField(record, 'details', '[see top-level details]');
           return record;
         });
       }

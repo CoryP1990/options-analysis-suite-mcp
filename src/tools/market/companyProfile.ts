@@ -2,21 +2,20 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ProxyClient } from '../../proxy/proxyClient.js';
 import { toolHandler } from '../helpers.js';
+import { shapeCompanyProfileResponse } from './companyProfileShaping.js';
 
 export function register(server: McpServer, client: ProxyClient): void {
   server.tool(
     'get_company_profile',
-    'Get company profile data for a symbol — sector, industry, market cap, description, CEO, employee count, and key identifiers. Useful for understanding what a company does before analyzing its options.',
+    'Get company profile data for a symbol with a compact normalized default view. Returns sector, industry, market cap, float metrics, key identifiers, and a trimmed business description. Use full=true for the raw synced profile row.',
     {
       symbol: z.string().describe('Ticker symbol (e.g., AAPL, TSLA)'),
+      full: z.boolean().optional().describe('Return the raw synced company-profile row instead of the compact normalized summary.'),
     },
-    toolHandler(async ({ symbol }) => {
+    toolHandler(async ({ symbol, full }) => {
       const res = await client.get(`/company-profile/${encodeURIComponent(symbol.toUpperCase())}`) as any;
-      // Trim long descriptions to save tokens
-      if (res?.description && res.description.length > 500) {
-        res.description = res.description.slice(0, 500) + '...';
-      }
-      return res;
+      if (full) return { _skipSizeGuard: true, data: res };
+      return shapeCompanyProfileResponse(res);
     }),
   );
 }

@@ -11,6 +11,8 @@ type ToolResult = {
   isError?: boolean;
 };
 
+const MAX_RESPONSE_BYTES = 50 * 1024; // 50 KB
+
 /**
  * Truncates large arrays in a data object to maxItems and appends a count note.
  * Recurses one level into plain objects to catch nested arrays (depth-limited to 2).
@@ -37,7 +39,45 @@ function truncateLargeArrays(data: unknown, maxItems = 50, depth = 0): unknown {
   return result;
 }
 
-const MAX_RESPONSE_BYTES = 50 * 1024; // 50 KB
+function aggressivelyTrimLargeArrays(data: unknown, maxItems = 5): unknown {
+  if (Array.isArray(data) && data.length > maxItems) {
+    return [
+      ...data.slice(-maxItems),
+      { _note: `Aggressively trimmed to most recent ${maxItems} items due to size. Request specific filters for full data.` },
+    ];
+  }
+  if (data === null || typeof data !== 'object') return data;
+  const obj = data as Record<string, unknown>;
+  for (const [key, value] of Object.entries(obj)) {
+    if (Array.isArray(value) && value.length > maxItems) {
+      obj[key] = value.slice(-maxItems);
+      obj[`_${key}_note`] = `Aggressively trimmed to most recent ${maxItems} items due to size. Request specific filters for full data.`;
+    }
+  }
+  return obj;
+}
+
+export function applyResponseSizeGuard(data: unknown, maxResponseBytes = MAX_RESPONSE_BYTES): string {
+  let json = JSON.stringify(data);
+  if (json.length <= maxResponseBytes) return json;
+
+  let processed = truncateLargeArrays(data);
+  json = JSON.stringify(processed);
+
+  if (json.length > maxResponseBytes) {
+    processed = aggressivelyTrimLargeArrays(processed);
+    json = JSON.stringify(processed);
+  }
+
+  if (json.length > maxResponseBytes) {
+    json = JSON.stringify({
+      _error: 'Response too large. Use specific filters (symbol, date range, limit) to narrow results.',
+      _size: `${Math.round(json.length / 1024)}KB`,
+    });
+  }
+
+  return json;
+}
 
 /**
  * Wraps a tool handler function with standard error handling.
@@ -76,23 +116,7 @@ export function toolHandler<T extends Record<string, unknown>>(
         // Full mode — compact JSON to minimize token usage
         json = JSON.stringify(data);
       } else {
-        // Response size guard — truncate large arrays, then compact JSON
-        let processed = truncateLargeArrays(data);
-        json = JSON.stringify(processed);
-        // If still too large after array truncation, progressively shrink arrays
-        if (json.length > MAX_RESPONSE_BYTES && typeof processed === 'object' && processed !== null) {
-          const obj = processed as Record<string, unknown>;
-          for (const [key, value] of Object.entries(obj)) {
-            if (Array.isArray(value) && value.length > 5) {
-              obj[key] = value.slice(-5);
-              obj[`_${key}_note`] = `Aggressively trimmed to most recent 5 items due to size. Request specific filters for full data.`;
-            }
-          }
-          json = JSON.stringify(obj);
-        }
-        if (json.length > MAX_RESPONSE_BYTES) {
-          json = JSON.stringify({ _error: 'Response too large. Use specific filters (symbol, date range, limit) to narrow results.', _size: `${Math.round(json.length / 1024)}KB` });
-        }
+        json = applyResponseSizeGuard(data);
       }
 
       return {
