@@ -1,6 +1,16 @@
 # Options Analysis Suite — AI Integration
 
-MCP server that gives Claude, ChatGPT, and Perplexity direct access to your options analysis data, market research tools, portfolio risk snapshots, and platform context.
+MCP server that gives Claude, ChatGPT, and Perplexity direct access to your options analysis data, 44 tools, and personalized trade recommendations.
+
+## How It Works
+
+You're running an FFT mispricing scan across your portfolio tickers. On another tab, you've got the GEX chart open and you're watching dealer positioning shift. You run a Heston calibration on NVDA and the model says calls are 12% cheap relative to the surface. Your portfolio is long delta and you're not sure if you should hedge or press.
+
+Ask the AI: *"Based on my current positions and risk profile, what should I do about NVDA?"*
+
+It already knows. It pulls your portfolio snapshot — every position, every Greek, your net delta and gamma exposure. It sees the FFT scan flagging NVDA calls as underpriced. It checks your risk analysis — your VaR, your beta exposure, your stress test results. It reads the market regime score and sees we're in a normal environment. It pulls NVDA's IV percentile, the earnings date, analyst consensus, insider activity, and short interest.
+
+Then it gives you a specific trade — not generic advice from a chatbot, but a recommendation grounded in your actual data.
 
 ## Supported Platforms
 
@@ -100,13 +110,14 @@ Without sync enabled, the assistant can still use the market and research tools.
 
 ## Example Prompts
 
-- "Is AAPL IV expensive relative to its last six months?"
-- "Show me my most recent AAPL pricing runs and tell me which model had the highest edge."
-- "How has my portfolio delta and gamma changed over the last few snapshots?"
-- "Summarize current short interest, dark pool activity, and FTD behavior for AMC."
-- "What does the current market regime say about stress, rates, and dealer positioning?"
-- "Pull recent SEC filings and analyst changes for TSLA."
-- "What are the most active and most unusual options contracts right now?"
+- "What's the current IV percentile for AAPL and how does it compare to the last 6 months?"
+- "According to my Variance Gamma and Black-Scholes calculations for GOOG, what do the Greeks say I'll lose over the weekend?"
+- "My portfolio delta is +450 — given the current regime and META earnings next week, should I hedge?"
+- "Compare the dark pool activity and short interest trend for AMD"
+- "Show me all my analyses where volatility was above 40% in the last two weeks"
+- "Is META IV expensive right now? Should I be buying or selling options?"
+- "What's the theta decay on my NVDA straddle through the weekend?"
+- "Based on my risk metrics, how would a 2008-style event impact my portfolio?"
 
 ## Privacy
 
