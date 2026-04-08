@@ -613,11 +613,13 @@ function buildRelevanceProfile(symbol: string, companyProfile: unknown, items: N
   const inferredEtfHints = shouldInferEtfFromFeed(profile, companyName, description, sector, industry)
     ? inferEtfProfileHints(symbol, items)
     : { isEtf: false, broadMarketEtf: false, benchmarkPhrases: [] };
-  const explicitBroadMarketEtf = explicitEtf
-    && !(companyName?.includes('sector') ?? false)
-    && !description.includes('sector')
-    && !industry.includes('sector')
-    && !sector.includes('sector');
+  // Detect sector ETFs by checking whether the *name* contains "sector" — this
+  // catches funds like "Financial Select Sector SPDR ETF" while allowing broad-
+  // market ETFs whose descriptions merely mention the word "sectors" (e.g. SPY
+  // describing "all eleven GICS sectors") to be classified as broadMarketEtf.
+  const isSectorFundName = (companyName?.includes('sector') ?? false)
+    || (companyName?.includes('select sector') ?? false);
+  const explicitBroadMarketEtf = explicitEtf && !isSectorFundName;
   const isEtf = explicitEtf || inferredEtfHints.isEtf;
   const broadMarketEtf = explicitEtf ? explicitBroadMarketEtf : inferredEtfHints.broadMarketEtf;
   const benchmarkSourceText = `${companyName ?? ''} ${description}`.trim();
@@ -882,6 +884,24 @@ function isNearDuplicateArticle(left: ScoredArticle, right: ScoredArticle, profi
   const rightBigrams = new Set(buildTopicBigrams(right.article, profile));
   const sharedTokens = sharedCount(leftTokens, rightTokens);
   const sharedBigrams = sharedCount(leftBigrams, rightBigrams);
+
+  // ETFs — articles within a single sector or market naturally share
+  // many topic tokens (energy terms, semiconductor terms, etc.).
+  // Use proportional overlap so genuinely different stories survive.
+  // Broad-market ETFs get the loosest threshold since ALL macro articles
+  // share tokens like "correction", "rate", "war".
+  if (profile.isEtf) {
+    const minTokenCount = Math.min(leftTokens.size, rightTokens.size);
+    const overlapRatio = minTokenCount > 0 ? sharedTokens / minTokenCount : 0;
+    if (profile.broadMarketEtf) {
+      if (sharedBigrams >= 4 && overlapRatio >= 0.4) return true;
+      if (overlapRatio >= 0.6) return true;
+    } else {
+      if (sharedBigrams >= 3 && overlapRatio >= 0.35) return true;
+      if (overlapRatio >= 0.5) return true;
+    }
+    return false;
+  }
 
   if (sharedBigrams >= 2) return true;
   if (sharedBigrams >= 1 && sharedTokens >= 3) return true;
@@ -1171,11 +1191,18 @@ function isIndirectMentionArticle(article: NewsArticle, profile: RelevanceProfil
   const titleTokens = tokenize(article.title);
   const textTokens = tokenize(`${article.title ?? ''} ${article.summary ?? article.text ?? article.snippet ?? ''}`);
 
-  return hasCompanyReference(textTokens, profile) && !hasCompanyReference(titleTokens, profile);
+  if (!hasCompanyReference(textTokens, profile)) return false;
+  if (hasCompanyReference(titleTokens, profile)) return false;
+  // For broad-market ETFs, a benchmark phrase in the title (e.g. "S&P 500") counts
+  // as a direct reference — don't treat these as indirect mentions.
+  if (profile.broadMarketEtf && hasBenchmarkPhrase(normalizeText(article.title), profile)) return false;
+  return true;
 }
 
 function isSecondaryTitleMentionArticle(article: NewsArticle, profile: RelevanceProfile): boolean {
   if (article.is_press_release) return false;
+  // For broad-market ETFs, benchmark-led titles are direct references
+  if (profile.broadMarketEtf && hasBenchmarkPhrase(normalizeText(article.title), profile)) return false;
 
   const title = normalizeText(article.title);
   const titleTokens = tokenize(article.title);
@@ -1372,17 +1399,25 @@ export function shapeNewsResponse(symbol: string, payload: unknown, companyProfi
       !entry.filingStyle && hasStrongEtfTitleReference(entry.article, profile))
     : [];
   const filteredNonFiling = filtered.filter((entry) => !entry.filingStyle);
-  const selectedPool = filteredBroadMarketEtfMacro.length > 0
+  // Don't prefer a narrow ETF pool over a much richer general pool.
+  // When filteredPrimary is large (>= 6 articles), require the ETF
+  // pool to have at least 3 articles before choosing it; otherwise a
+  // single-article ETF pool can crowd out a diverse general feed.
+  // For small feeds (< 6 articles), any non-empty pool is acceptable.
+  const etfMinPool = filteredPrimary.length >= 6 ? 3 : 1;
+  const okPool = (pool: ScoredArticle[]) => pool.length >= etfMinPool;
+
+  const selectedPool = okPool(filteredBroadMarketEtfMacro)
     ? filteredBroadMarketEtfMacro
-    : filteredEtfFundSpecific.length > 0
+    : okPool(filteredEtfFundSpecific)
       ? filteredEtfFundSpecific
-      : filteredEtfLead.length > 0
+      : okPool(filteredEtfLead)
         ? filteredEtfLead
-        : filteredBroadMarketEtfBenchmark.length > 0
+        : okPool(filteredBroadMarketEtfBenchmark)
           ? filteredBroadMarketEtfBenchmark
-          : filteredEtfPrimary.length > 0
+          : okPool(filteredEtfPrimary)
             ? filteredEtfPrimary
-            : filteredEtfNonFiling.length > 0
+            : okPool(filteredEtfNonFiling)
               ? filteredEtfNonFiling
               : filteredDirectOperating.length > 0
                 ? filteredDirectOperating

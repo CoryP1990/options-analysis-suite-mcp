@@ -388,7 +388,7 @@ export function shapeInsiderTradingResponse(payload: unknown, companyProfile?: u
     netOpenMarketValue: openMarketBuyValue - openMarketSellValue,
     groupedEvents: groupedTrades.length,
     rawRows: Array.isArray((payload as InsiderResponse).insider_trades)
-      ? (payload as InsiderResponse).insider_trades!.length
+      ? ((payload as InsiderResponse).insider_trades as unknown[]).length
       : 0,
     activityBreakdown: summarizeActivityCounts(groupedTrades),
     dataSource: 'fmp-insider-trading',

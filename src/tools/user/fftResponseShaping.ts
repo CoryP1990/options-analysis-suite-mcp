@@ -9,17 +9,113 @@
  *  Below the 50 KB hard limit in helpers.ts to leave headroom. */
 export const TRUNCATION_THRESHOLD = 40 * 1024;
 
+/** Hard ceiling used by the FFT tool's internal size-trim pass.
+ *  Leaves headroom below the 50 KB MCP response limit so the generic
+ *  size guard never kicks in and silently collapses the response. */
+export const FFT_SAFE_SIZE_BUDGET = 48 * 1024;
+
 /** Keys whose objects are small and should stay inline in the summary view. */
 export const PRESERVE_KEYS = new Set(['calibration', 'summary', 'bestValues']);
 
 /** Small metadata arrays that should never be truncated. */
 export const SKIP_TRUNCATE_KEYS = new Set(['models', 'failedModels']);
 
+/** Fields preserved from each `bestValues.*` entry — the signal-bearing
+ *  keys an AI needs to understand a scanner mispricing hit. Drops verbose
+ *  raw pricing (marketBid/ask, modelPrice, errorMetrics, qualityFlags). */
+const BEST_VALUE_KEEP_KEYS = new Set([
+  'type', 'strike', 'signal', 'edge',
+  'priceDiff', 'priceDiffPct', 'marketMid',
+  'moneyness', 'volume', 'openInterest', 'expiration',
+]);
+
+/** Summary fields to drop (non-signal noise). */
+const SUMMARY_DROP_KEYS = new Set(['scanTimeMs']);
+
+/** Primary greeks kept in the compact view — higher-order greeks
+ *  (Vanna, Charm, Veta, Speed, Zomma, Color, Ultima, etc.) are dropped. */
+const PRIMARY_GREEKS = new Set(['Delta', 'Gamma', 'Theta', 'Vega', 'Rho']);
+
+function compactGreeks(greeks: unknown): unknown {
+  if (!greeks || typeof greeks !== 'object' || Array.isArray(greeks)) return greeks;
+  const src = greeks as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  for (const key of PRIMARY_GREEKS) {
+    if (key in src) out[key] = src[key];
+  }
+  return out;
+}
+
+function compactBestValueEntry(entry: unknown): unknown {
+  if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return entry;
+  const src = entry as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  for (const key of BEST_VALUE_KEEP_KEYS) {
+    if (key in src) out[key] = src[key];
+  }
+  return out;
+}
+
+function compactBestValues(bestValues: unknown): unknown {
+  if (!bestValues || typeof bestValues !== 'object' || Array.isArray(bestValues)) return bestValues;
+  return Object.fromEntries(
+    Object.entries(bestValues as Record<string, unknown>)
+      .map(([k, v]) => [k, compactBestValueEntry(v)]),
+  );
+}
+
+function compactSummary(summary: unknown): unknown {
+  if (!summary || typeof summary !== 'object' || Array.isArray(summary)) return summary;
+  return Object.fromEntries(
+    Object.entries(summary as Record<string, unknown>)
+      .filter(([k]) => !SUMMARY_DROP_KEYS.has(k)),
+  );
+}
+
+/** Compact `positions[].models[]` entries: keep model name, price, and
+ *  primary greeks only. Drop higher-order greeks and diagnostic blobs. */
+function compactPositions(positions: unknown): unknown {
+  if (!Array.isArray(positions)) return positions;
+  return positions.map((pos) => {
+    if (!pos || typeof pos !== 'object' || Array.isArray(pos)) return pos;
+    const src = pos as Record<string, unknown>;
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(src)) {
+      if (k === 'models' && Array.isArray(v)) {
+        out[k] = v.map((m) => {
+          if (!m || typeof m !== 'object' || Array.isArray(m)) return m;
+          const modelSrc = m as Record<string, unknown>;
+          const modelOut: Record<string, unknown> = {};
+          if ('model' in modelSrc) modelOut.model = modelSrc.model;
+          if ('price' in modelSrc) modelOut.price = modelSrc.price;
+          // Signal-bearing fields an AI needs to understand model disagreement
+          // — cheap to keep (~5 bytes/field) and core to the tool's purpose.
+          if ('signal' in modelSrc) modelOut.signal = modelSrc.signal;
+          if ('priceDiffPct' in modelSrc) modelOut.priceDiffPct = modelSrc.priceDiffPct;
+          if ('greeks' in modelSrc) modelOut.greeks = compactGreeks(modelSrc.greeks);
+          if ('error' in modelSrc && modelSrc.error) modelOut.error = modelSrc.error;
+          return modelOut;
+        });
+      } else if (k === 'greeks') {
+        out[k] = compactGreeks(v);
+      } else {
+        out[k] = v;
+      }
+    }
+    return out;
+  });
+}
+
 /** Replace nested objects with placeholders.
- *  Preserves arrays, scalars, and whitelisted keys. */
+ *  Preserves arrays, scalars, and whitelisted keys. For the whitelisted
+ *  `summary`, `bestValues`, and `positions` keys, applies targeted
+ *  compaction so the AI sees signal fields without verbose raw pricing. */
 export function flattenObjects(obj: Record<string, unknown>): Record<string, unknown> {
   return Object.fromEntries(
     Object.entries(obj).map(([k, v]) => {
+      if (k === 'summary') return [k, compactSummary(v)];
+      if (k === 'bestValues') return [k, compactBestValues(v)];
+      if (k === 'positions') return [k, compactPositions(v)];
       if (PRESERVE_KEYS.has(k)) return [k, v];
       if (typeof v === 'object' && v !== null && !Array.isArray(v)) {
         return [k, '[nested object]'];
@@ -98,4 +194,28 @@ export function truncateRecord(record: any): void {
   const spot = typeof record.data?.spot === 'number' ? record.data.spot : undefined;
   if (record.data && typeof record.data === 'object') truncateArrays(record.data);
   if (record.details && typeof record.details === 'object') truncateArrays(record.details, 5, spot);
+}
+
+/** Drop oldest records in-place until the response fits under a byte budget.
+ *
+ *  Called by the FFT tool as a Pass-3 fallback after `shapeRecord` (Pass 1)
+ *  and `truncateRecord` (Pass 2). Sync-backed FFT data is sorted newest-first
+ *  (`timestamp DESC` in `proxy/routes/sync.ts`), so `pop()` drops the oldest.
+ *  Preserves at least 1 record and annotates the response with
+ *  `_truncation_note` so AI clients see exactly how many they got vs requested.
+ *  Returns the mutated response for chaining. No-op when already under budget.
+ */
+export function trimToSizeBudget(
+  res: { data: unknown[]; count?: number; _truncation_note?: string; [k: string]: unknown } | null | undefined,
+  budget = FFT_SAFE_SIZE_BUDGET,
+): void {
+  if (!res || !Array.isArray(res.data) || res.data.length <= 1) return;
+  if (JSON.stringify(res).length <= budget) return;
+
+  const requested = res.data.length;
+  while (res.data.length > 1 && JSON.stringify(res).length > budget) {
+    res.data.pop();
+  }
+  res.count = res.data.length;
+  res._truncation_note = `Returned ${res.data.length} newest of ${requested} requested FFT runs to fit size budget. Use symbol or since filters to narrow further.`;
 }

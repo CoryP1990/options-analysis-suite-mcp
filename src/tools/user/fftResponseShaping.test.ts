@@ -5,7 +5,9 @@ import {
   truncateArrays,
   shapeRecord,
   truncateRecord,
+  trimToSizeBudget,
   TRUNCATION_THRESHOLD,
+  FFT_SAFE_SIZE_BUDGET,
   PRESERVE_KEYS,
   SKIP_TRUNCATE_KEYS,
 } from './fftResponseShaping.js';
@@ -243,14 +245,146 @@ describe('shapeRecord', () => {
     expect((record.data.bestValues as any).bestCall.strike).toBe(380);
   });
 
+  test('compacts bestValues entries: keeps signal fields, drops verbose pricing', () => {
+    const record: any = {
+      symbol: 'SPY',
+      timestamp: Date.now(),
+      data: {
+        spot: 659.22,
+        summary: { totalScanned: 117, buySignals: 97, sellSignals: 20, scanTimeMs: 1.4 },
+        bestValues: {
+          bestEdgePut: {
+            edge: 1.2729,
+            type: 'put',
+            delta: -0.161,
+            signal: 'strongBuy',
+            strike: 660,
+            volume: 7619,
+            marketIV: 0.445,
+            marketAsk: 4.88,
+            marketBid: 4.85,
+            marketMid: 4.865,
+            moneyness: 'ATM',
+            priceDiff: 1.2879,
+            priceDiffPct: 26.47,
+            modelPrice: 6.1529,
+            errorMetrics: { absError: 1.2879, relError: 0.2647, halfSpreadRatio: 85.86 },
+            openInterest: 1546,
+            qualityFlags: [],
+          },
+        },
+      },
+      details: {},
+    };
+    shapeRecord(record);
+    const bep = (record.data.bestValues as any).bestEdgePut;
+    // Signal-bearing fields preserved
+    expect(bep.type).toBe('put');
+    expect(bep.strike).toBe(660);
+    expect(bep.signal).toBe('strongBuy');
+    expect(bep.edge).toBe(1.2729);
+    expect(bep.priceDiff).toBe(1.2879);
+    expect(bep.priceDiffPct).toBe(26.47);
+    expect(bep.marketMid).toBe(4.865);
+    expect(bep.moneyness).toBe('ATM');
+    expect(bep.volume).toBe(7619);
+    expect(bep.openInterest).toBe(1546);
+    // Verbose pricing dropped to save space
+    expect(bep.delta).toBeUndefined();
+    expect(bep.marketIV).toBeUndefined();
+    expect(bep.marketAsk).toBeUndefined();
+    expect(bep.marketBid).toBeUndefined();
+    expect(bep.modelPrice).toBeUndefined();
+    expect(bep.errorMetrics).toBeUndefined();
+    expect(bep.qualityFlags).toBeUndefined();
+    // Summary micro-stats dropped
+    expect((record.data.summary as any).scanTimeMs).toBeUndefined();
+    expect((record.data.summary as any).buySignals).toBe(97);
+  });
+
+  test('preserves signal and priceDiffPct on Shape C portfolio-scan model entries', () => {
+    // Shape C (multi-model portfolio scan) — the AI needs to know which
+    // models flagged each position and by how much. Greeks compaction is
+    // fine but dropping signal/priceDiffPct would gut the tool's purpose.
+    const record: any = {
+      symbol: 'SPY',
+      timestamp: Date.now(),
+      data: {
+        spot: 652.41,
+        type: 'portfolio_scan',
+        models: ['blackScholes'],
+        symbol: 'SPY',
+        multiModel: false,
+        positions: [
+          {
+            strike: 550,
+            quantity: 1,
+            expiration: '2026-05-15',
+            optionType: 'call',
+            marketMid: 114.7,
+            agreement: 'majority_sell',
+            avgModelPrice: 114.2,
+            models: [
+              {
+                model: 'blackScholes',
+                price: 114.7333,
+                signal: 'weakSell',
+                priceDiffPct: -0.46,
+                greeks: {
+                  Delta: 0.95,
+                  Gamma: 0.002,
+                  Theta: -0.12,
+                  Vega: 0.08,
+                  Rho: 0.15,
+                  // Higher-order greeks that SHOULD be dropped by compactGreeks
+                  Vanna: 0.01,
+                  Charm: -0.002,
+                  Vomma: 0.0001,
+                  Speed: 0.00001,
+                  Color: 0.00002,
+                  Zomma: 0.0000001,
+                },
+              },
+            ],
+          },
+        ],
+      },
+      details: {},
+    };
+    shapeRecord(record);
+    const position = (record.data.positions as any)[0];
+    const model = position.models[0];
+    // Signal-bearing fields — MUST survive, the tool exists to surface these
+    expect(model.signal).toBe('weakSell');
+    expect(model.priceDiffPct).toBe(-0.46);
+    expect(model.model).toBe('blackScholes');
+    expect(model.price).toBe(114.7333);
+    // Primary greeks preserved
+    expect(model.greeks).toEqual({
+      Delta: 0.95,
+      Gamma: 0.002,
+      Theta: -0.12,
+      Vega: 0.08,
+      Rho: 0.15,
+    });
+    // Higher-order greeks dropped to save size
+    expect((model.greeks as any).Vanna).toBeUndefined();
+    expect((model.greeks as any).Charm).toBeUndefined();
+    expect((model.greeks as any).Vomma).toBeUndefined();
+    // Position-level fields preserved
+    expect(position.strike).toBe(550);
+    expect(position.agreement).toBe('majority_sell');
+    expect(position.expiration).toBe('2026-05-15');
+  });
+
   test('flattens unknown nested objects', () => {
     const record = {
       data: { spot: 100, unknownNested: { deep: true } },
       details: { unknownNested: { deep: true } },
     };
     shapeRecord(record);
-    expect(record.data.unknownNested).toBe('[nested object]');
-    expect(record.details.unknownNested).toBe('[nested object]');
+    expect(record.data.unknownNested as unknown).toBe('[nested object]');
+    expect(record.details.unknownNested as unknown).toBe('[nested object]');
   });
 
   test('handles records with null/missing data or details', () => {
@@ -347,5 +481,86 @@ describe('size-aware truncation', () => {
     const res = { data: [record] };
     for (const r of res.data) shapeRecord(r);
     expect(JSON.stringify(res).length).toBeLessThan(TRUNCATION_THRESHOLD);
+  });
+});
+
+// ─── trimToSizeBudget ────────────────────────────────────────────────
+
+describe('trimToSizeBudget', () => {
+  /** Build an oversized-but-valid FFT record of roughly N bytes. */
+  function makeBloatRecord(timestamp: number, approxBytes: number) {
+    return {
+      symbol: 'TEST',
+      timestamp,
+      data: {
+        spot: 100,
+        summary: { totalScanned: 10, buySignals: 1, sellSignals: 1 },
+        bestValues: {},
+        blob: 'x'.repeat(Math.max(0, approxBytes - 200)),
+      },
+      details: {},
+    };
+  }
+
+  test('drops oldest rows until under budget, keeps newest, adds note', () => {
+    // 10 records @ ~3 KB each, newest timestamp = highest (sync is DESC)
+    const records = Array.from({ length: 10 }, (_, i) =>
+      makeBloatRecord(2_000_000_000_000 - i * 1000, 3000),
+    );
+    const res: any = { data: [...records], count: 10 };
+
+    trimToSizeBudget(res, 15 * 1024); // 15 KB budget ⇒ must trim
+
+    // Trimmed but not empty
+    expect(res.data.length).toBeGreaterThan(0);
+    expect(res.data.length).toBeLessThan(10);
+    // Newest row (highest timestamp) is index 0 and still present
+    expect(res.data[0].timestamp).toBe(2_000_000_000_000);
+    // Surviving rows are a prefix of the original array — strictly
+    // monotonically decreasing timestamps, dropped rows are the oldest
+    for (let i = 0; i < res.data.length; i += 1) {
+      expect(res.data[i].timestamp).toBe(2_000_000_000_000 - i * 1000);
+    }
+    // Final payload is under budget
+    expect(JSON.stringify(res).length).toBeLessThanOrEqual(15 * 1024);
+    // Note set, count updated
+    expect(res._truncation_note).toContain(`newest of 10`);
+    expect(res._truncation_note).toContain(String(res.data.length));
+    expect(res.count).toBe(res.data.length);
+  });
+
+  test('no-op when response already fits', () => {
+    const records = [
+      { symbol: 'A', timestamp: 200, data: { spot: 100 }, details: {} },
+      { symbol: 'B', timestamp: 100, data: { spot: 101 }, details: {} },
+    ];
+    const res: any = { data: [...records], count: 2 };
+    trimToSizeBudget(res, 100 * 1024);
+    expect(res.data.length).toBe(2);
+    expect(res._truncation_note).toBeUndefined();
+    expect(res.count).toBe(2);
+  });
+
+  test('preserves at least 1 row even if the first row alone exceeds the budget', () => {
+    const records = [makeBloatRecord(2_000_000_000_000, 5000)];
+    const res: any = { data: [...records], count: 1 };
+    trimToSizeBudget(res, 100); // absurdly tiny budget
+    // Guard against trimming to zero
+    expect(res.data.length).toBe(1);
+    // Length === 1 means the while loop never entered, so no note
+    expect(res._truncation_note).toBeUndefined();
+  });
+
+  test('no-op on null or malformed input', () => {
+    expect(() => trimToSizeBudget(null)).not.toThrow();
+    expect(() => trimToSizeBudget(undefined)).not.toThrow();
+    expect(() => trimToSizeBudget({ data: 'not an array' } as any)).not.toThrow();
+    expect(() => trimToSizeBudget({ data: [] } as any)).not.toThrow();
+  });
+
+  test('default budget equals FFT_SAFE_SIZE_BUDGET constant', () => {
+    expect(FFT_SAFE_SIZE_BUDGET).toBe(48 * 1024);
+    // Default budget should leave headroom below the 50 KB MCP hard limit
+    expect(FFT_SAFE_SIZE_BUDGET).toBeLessThan(50 * 1024);
   });
 });

@@ -16,20 +16,24 @@ const MAX_RESPONSE_BYTES = 50 * 1024; // 50 KB
 /**
  * Truncates large arrays in a data object to maxItems and appends a count note.
  * Recurses one level into plain objects to catch nested arrays (depth-limited to 2).
+ * Takes the FIRST N items — which are the newest for sync tools that sort
+ * `timestamp DESC` (and the earliest for tools that return oldest-first).
+ * Tools that care about which end survives should trim internally before
+ * reaching this helper.
  */
 function truncateLargeArrays(data: unknown, maxItems = 50, depth = 0): unknown {
   if (data === null || typeof data !== 'object' || depth > 2) return data;
   // Handle root-level arrays
   if (Array.isArray(data) && data.length > maxItems) {
-    return [...data.slice(-maxItems), { _note: `Truncated from ${data.length} to ${maxItems} items.` }];
+    return [...data.slice(0, maxItems), { _note: `Truncated from ${data.length} to first ${maxItems} items.` }];
   }
   if (Array.isArray(data)) return data;
   const obj = data as Record<string, unknown>;
   const result: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(obj)) {
     if (Array.isArray(value) && value.length > maxItems) {
-      result[key] = value.slice(-maxItems);
-      result[`_${key}_note`] = `Truncated from ${value.length} to ${maxItems} items. Request specific date range or fields for full data.`;
+      result[key] = value.slice(0, maxItems);
+      result[`_${key}_note`] = `Truncated from ${value.length} to first ${maxItems} items. Request specific date range or fields for full data.`;
     } else if (typeof value === 'object' && value !== null && !Array.isArray(value) && depth < 2) {
       result[key] = truncateLargeArrays(value, maxItems, depth + 1);
     } else {
@@ -42,16 +46,16 @@ function truncateLargeArrays(data: unknown, maxItems = 50, depth = 0): unknown {
 function aggressivelyTrimLargeArrays(data: unknown, maxItems = 5): unknown {
   if (Array.isArray(data) && data.length > maxItems) {
     return [
-      ...data.slice(-maxItems),
-      { _note: `Aggressively trimmed to most recent ${maxItems} items due to size. Request specific filters for full data.` },
+      ...data.slice(0, maxItems),
+      { _note: `Aggressively trimmed to first ${maxItems} items due to size (newest first for sync-backed tools that sort timestamp DESC). Request specific filters for full data.` },
     ];
   }
   if (data === null || typeof data !== 'object') return data;
   const obj = data as Record<string, unknown>;
   for (const [key, value] of Object.entries(obj)) {
     if (Array.isArray(value) && value.length > maxItems) {
-      obj[key] = value.slice(-maxItems);
-      obj[`_${key}_note`] = `Aggressively trimmed to most recent ${maxItems} items due to size. Request specific filters for full data.`;
+      obj[key] = value.slice(0, maxItems);
+      obj[`_${key}_note`] = `Aggressively trimmed to first ${maxItems} items due to size (newest first for sync-backed tools that sort timestamp DESC). Request specific filters for full data.`;
     }
   }
   return obj;

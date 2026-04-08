@@ -1,6 +1,6 @@
 # Options Analysis Suite — AI Integration
 
-MCP server that gives Claude, ChatGPT, and Perplexity direct access to your options analysis data, 44 tools, and personalized trade recommendations.
+MCP server that gives Claude, ChatGPT, and Perplexity direct access to your options analysis data, 45 tools, and personalized trade recommendations.
 
 ## How It Works in Practice
 
@@ -24,10 +24,10 @@ No copy-pasting data between tabs. No explaining your portfolio to the AI. No co
 
 ## Current Tool Surface
 
-The MCP currently exposes **44 tools**:
+The MCP currently exposes **45 tools**:
 
 - **34 market and research tools**
-- **9 synced user-data tools**
+- **10 synced user-data tools**
 - **1 platform-context tool**
 
 ## Market And Research Tools
@@ -87,6 +87,7 @@ These require account sync to be enabled.
 
 - **Analysis History** (`get_analysis_history`) — Pricing model history with near-identical reruns collapsed by default
 - **Query Analysis** (`query_analysis`) — Filtered analysis-history queries by delta, volatility, and DTE
+- **Compute Runs** (`get_compute_runs`) — AI Compute Suite run history with compact run summaries, exposure key levels, model-dispersion highlights, and representative position/model outputs across multiple pricing models
 - **FFT Results** (`get_fft_results`) — FFT scanner mispricing signals and calibration data
 - **GEX Snapshot** (`get_gex_snapshot`) — Saved gamma exposure snapshots
 - **Portfolio Snapshot** (`get_portfolio_snapshot`) — Portfolio value, positions, P&L, and aggregate Greeks over time
@@ -106,7 +107,7 @@ To give the assistant access to your personal analysis data:
 1. Log in to Options Analysis Suite
 2. Open `Account -> AI Settings`
 3. Enable data sync
-4. Run analyses, FFT scans, GEX scans, or portfolio/risk snapshots in the app
+4. Run analyses, FFT scans, AI Compute Suite runs, GEX scans, or portfolio/risk snapshots in the app
 
 Without sync enabled, the assistant can still use the market and research tools.
 

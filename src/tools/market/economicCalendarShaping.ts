@@ -144,7 +144,7 @@ function subnationalNoisePenalty(event: EconomicEvent): number {
 
 function eventCompletenessScore(event: EconomicEvent): number {
   const fields: Array<keyof EconomicEvent> = ['impact', 'country', 'currency', 'estimate', 'actual', 'previous', 'change'];
-  return fields.reduce((count, field) => count + (event[field] != null && event[field] !== '' ? 1 : 0), 0);
+  return fields.reduce<number>((count, field) => count + (event[field] != null && event[field] !== '' ? 1 : 0), 0);
 }
 
 function eventKey(event: EconomicEvent): string {

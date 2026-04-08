@@ -10,7 +10,10 @@ export function register(server: McpServer, client: ProxyClient, tokenManager: T
     {},
     async () => {
       const profile = tokenManager.getProfileCached();
-      return shapeAccountInfo(profile, client.hasSearchKey);
+      const info = shapeAccountInfo(profile, client.hasSearchKey);
+      return {
+        content: [{ type: 'text' as const, text: JSON.stringify(info, null, 2) }],
+      };
     },
   );
 }

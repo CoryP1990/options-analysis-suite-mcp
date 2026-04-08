@@ -337,10 +337,10 @@ export function normalizePortfolioSnapshotSymbols(record: any): void {
   if (!detailsSource) return;
 
   const positionGreeks = Array.isArray(detailsSource.positionGreeks)
-    ? detailsSource.positionGreeks.filter((item): item is Record<string, unknown> => item != null && typeof item === 'object')
+    ? detailsSource.positionGreeks.filter((item: unknown): item is Record<string, unknown> => item != null && typeof item === 'object')
     : [];
   if (positionGreeks.length > 0) {
-    detailsSource.positionGreeks = positionGreeks.map((entry) => {
+    detailsSource.positionGreeks = positionGreeks.map((entry: Record<string, unknown>) => {
       const quantity = typeof entry.quantity === 'number' && Number.isFinite(entry.quantity) ? entry.quantity : null;
       return {
         ...entry,
@@ -350,9 +350,9 @@ export function normalizePortfolioSnapshotSymbols(record: any): void {
   }
 
   const fullAllocation = Array.isArray(detailsSource.fullAllocation)
-    ? detailsSource.fullAllocation.filter((item): item is Record<string, unknown> => item != null && typeof item === 'object')
+    ? detailsSource.fullAllocation.filter((item: unknown): item is Record<string, unknown> => item != null && typeof item === 'object')
     : [];
-  const normalizedAllocation = fullAllocation.map((entry, index) => {
+  const normalizedAllocation = fullAllocation.map((entry: Record<string, unknown>, index: number) => {
     const greekEntry = positionGreeks[index];
     const quantity = greekEntry && typeof greekEntry.quantity === 'number' && Number.isFinite(greekEntry.quantity)
       ? greekEntry.quantity
@@ -372,7 +372,7 @@ export function normalizePortfolioSnapshotSymbols(record: any): void {
       const symbol = typeof holdingObj.symbol === 'string' ? holdingObj.symbol.trim() : '';
       if (symbol) return holding;
 
-      const matchIndex = normalizedAllocation.findIndex((allocation, index) => {
+      const matchIndex = normalizedAllocation.findIndex((allocation: Record<string, unknown>, index: number) => {
         if (used.has(index)) return false;
         return sameValue(allocation.value, holdingObj.value) && sameValue(allocation.pnl, holdingObj.pnl);
       });

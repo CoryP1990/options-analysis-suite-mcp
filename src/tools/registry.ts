@@ -55,6 +55,7 @@ import { register as fftResults } from './user/fftResults.js';
 import { register as annotations } from './user/annotations.js';
 import { register as queryAnalysis } from './user/queryAnalysis.js';
 import { register as accountInfo } from './user/accountInfo.js';
+import { register as computeRuns } from './user/computeRuns.js';
 
 export function registerAllTools(
   server: McpServer,
@@ -99,7 +100,7 @@ export function registerAllTools(
   // Platform info (1 tool)
   registerPlatformInfo(server);
 
-  // User data (9 tools — synced from browser via /sync/* endpoints + account info)
+  // User data (10 tools — synced from browser via /sync/* endpoints + account info)
   analysisHistory(server, client);
   gexSnapshot(server, client);
   portfolioSnapshot(server, client);
@@ -109,4 +110,5 @@ export function registerAllTools(
   annotations(server, client);
   queryAnalysis(server, client);
   accountInfo(server, client, tokenManager);
+  computeRuns(server, client);
 }

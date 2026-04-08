@@ -76,7 +76,7 @@ function buildExpirationSummary(expiration: string, rows: IvSurfaceRow[], spotPr
       putIV: round(callNode.putIV),
       callIV: round(callNode.callIV),
     },
-  ].filter(Boolean);
+  ].filter((x): x is NonNullable<typeof x> => Boolean(x));
 
   const skewSummary = atmNode && putNode && callNode
     ? {

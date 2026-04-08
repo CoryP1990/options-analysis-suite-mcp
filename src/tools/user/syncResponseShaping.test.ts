@@ -97,7 +97,7 @@ describe('shapeAnalysisResultRecord', () => {
 
     shapeAnalysisResultRecord(record);
 
-    expect(record.data.greeks).toEqual({
+    expect(record.data.greeks as any).toEqual({
       Delta: 0.53,
       Gamma: 0.03,
       Vanna: 0.01,
@@ -107,17 +107,17 @@ describe('shapeAnalysisResultRecord', () => {
         _note: 'Omitted 100 items. Use full=true for complete data.',
       },
     });
-    expect(record.data.facts).toBe('[see top-level facts]');
-    expect(record.data.artifacts).toBe('[see top-level artifacts]');
+    expect(record.data.facts as any).toBe('[see top-level facts]');
+    expect(record.data.artifacts as any).toBe('[see top-level artifacts]');
     expect(record.id).toBeUndefined();
     expect(record.user_id).toBeUndefined();
     expect(record.created_at).toBeUndefined();
     expect(record.data.id).toBeUndefined();
-    expect(record.facts).toEqual({
+    expect(record.facts as any).toEqual({
       spot: 100,
       moneyness: 1.02,
     });
-    expect(record.artifacts).toEqual({
+    expect(record.artifacts as any).toEqual({
       calibrationSummary: {
         model: 'Heston',
         rmse: 0.002,
@@ -208,7 +208,7 @@ describe('shapeAnalysisResultRecord', () => {
 
     expect(record.data.symbol).toBe('AAPL');
     expect(record.data.strike).toBe(200);
-    expect(record.data.weirdNested).toBe('[nested object]');
+    expect(record.data.weirdNested as any).toBe('[nested object]');
   });
 
   test('is null-safe', () => {
@@ -308,7 +308,7 @@ describe('stripSyncRecordMetadata', () => {
 
     stripSyncRecordMetadata(record);
 
-    expect(record).toEqual({
+    expect(record as any).toEqual({
       data: {
         symbol: 'SPY',
       },
@@ -328,7 +328,7 @@ describe('replaceDuplicatedDataField', () => {
     };
 
     replaceDuplicatedDataField(record, 'details', '[see top-level details]');
-    expect(record.data.details).toBe('[see top-level details]');
+    expect(record.data.details as any).toBe('[see top-level details]');
   });
 
   test('does nothing for scalar fields or missing data', () => {
@@ -801,8 +801,8 @@ describe('compactPortfolioHistoryResponse', () => {
 
     expect(res.data[0].data.topHoldings).toHaveLength(5);
     expect(res.data[1].data.topHoldings).toHaveLength(3);
-    expect(res.data[0].data._topHoldingsNote).toContain('5 of 8');
-    expect(res.data[1].data._topHoldingsNote).toContain('3 of 7');
+    expect((res.data[0].data as any)._topHoldingsNote).toContain('5 of 8');
+    expect((res.data[1].data as any)._topHoldingsNote).toContain('3 of 7');
     expect(res.data[0].data.topHoldings[0].weight).toBe(0.1235);
   });
 });

@@ -109,6 +109,7 @@
     { "name": "get_user_annotations", "description": "Get user's research notes, tags, and alerts, with a truthful empty state when none have been synced yet" },
     { "name": "query_analysis", "description": "Query analysis history with numeric filters (delta, volatility, DTE ranges), with near-identical reruns collapsed in the default view" },
     { "name": "get_account_info", "description": "Get structured current-user account info, subscription status, and MCP capabilities such as web search" },
+    { "name": "get_compute_runs", "description": "Get user's AI Compute Suite run history with compact run summaries, exposure key levels, and representative position/model outputs; use full=true for raw synced runs" },
     { "name": "get_unusual_options", "description": "Get unusual options flow ranked by volume-to-open-interest ratio; default contract view returns representative unusual flow, with view=ticker for aggregated underlyings" },
     { "name": "get_company_profile", "description": "Get a compact normalized company profile with float metrics, identifiers, and a trimmed description; use full=true for the raw synced row" }
   ],
