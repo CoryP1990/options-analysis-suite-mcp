@@ -32,21 +32,23 @@ export const SCREENER_IDS = [
   'vrp',                   // side: high | low
   'max-pain',              // mode: pinning | divergence
   'unusual-directional',   // side: call | put
-  // Market-wide summary, not a leaderboard
+  // Non-leaderboard views exposed through the same tool for convenience.
   'market-trends',
+  'earnings-calendar',
 ] as const;
 
-const SCREENER_DESCRIPTION = `Run one of the 16 options-market screeners (plus a market-trends summary). Choose the screener via the \`screener\` enum; pass sub-params only for the screener that needs them:
+const SCREENER_DESCRIPTION = `Run one of the 16 options-market screeners (plus market-trends and an earnings-calendar view). Choose the screener via the \`screener\` enum; pass sub-params only for the screener that needs them. Irrelevant sub-params are ignored.
 
-• most-active / highest-oi / highest-iv / unusual / gex — main tabs. Use \`view\` (ticker|contract, default ticker). Support \`index\` (all|sp500|sp400|sp600|etf). \`unusual\` also accepts \`threshold\` (vol/OI ratio floor, default 1.0).
-• dod-change — day-over-day leaderboards. Requires \`metric\` (gex|iv|put-call|skew|regime). Optional \`direction\` (up|down|all) for gex/iv/put-call.
+• most-active / highest-oi / highest-iv / unusual / gex — main tabs. Use \`view\` (ticker|contract, default ticker). Support \`index\` (all|sp500|sp400|sp600|etf). Note: \`index=etf\` returns rows only in \`view=contract\`; ticker view's aggregator does not include ETF rows. For \`unusual\`, the \`threshold\` param's meaning depends on view: contract view = min volume/OI ratio (float, default 1.0); ticker view = min unusual-contract breadth count (integer, default 1).
+• dod-change — day-over-day leaderboards. Requires \`metric\` (gex|iv|put-call|skew|regime). Optional \`direction\` (up|down|all) for gex/iv/put-call. To get DoD skew or regime views, use dod-change with \`metric=skew\` or \`metric=regime\` — the \`regime-stress\` / \`put-skew\` screener ids always return the level leaderboard, never the change view.
 • vrp — volatility risk premium. Requires \`side\` (high|low).
 • max-pain — requires \`mode\` (pinning: spot near max pain + high gamma concentration; divergence: spot vs max pain in implied-move σ units).
 • unusual-directional — requires \`side\` (call|put).
-• market-trends — market-wide avg IV / volume / P/C time series. Optional \`days\` (default 90).
+• market-trends — market-wide avg IV / volume / P/C time series. Optional \`days\` (passthrough to proxy; proxy default 365, capped at 730). For token-budget reasons, an LLM may want to pass a smaller \`days\` (e.g. 30–90).
+• earnings-calendar — upcoming earnings reports. Defaults to the next 14 days from today, matching the Morning Report window. Optional \`symbol\` to filter to a single ticker; optional \`days\` to widen/shorten the window (1..90).
 • Everything else takes only \`limit\`.
 
-Returns the raw screener payload shape from the platform: \`{ data: Ticker[], currentDate, priorDate?, metric, ... }\`. Each ticker row includes the ranking metric plus supporting fields (spotPrice, totalOi, atmIv30d, label/stress, etc.). See the per-screener column notes at optionsanalysissuite.com/screeners.`;
+Returns the raw proxy payload; shape varies by screener. Ranking endpoints typically return \`{ data: Row[], currentDate, priorDate?, metric, ... }\` where Row includes the ranking metric plus supporting fields (spotPrice, totalOi, atmIv30d, label/stress, etc.). Contract-view endpoints return per-contract rows. \`market-trends\` returns time-series aggregates. \`earnings-calendar\` returns a bare array of {symbol, date, time, ...} rows. See the per-screener column notes at optionsanalysissuite.com/screeners.`;
 
 type Sub = {
   view?: 'ticker' | 'contract';
@@ -57,6 +59,7 @@ type Sub = {
   direction?: 'all' | 'up' | 'down';
   threshold?: number;
   days?: number;
+  symbol?: string;
 };
 
 interface ScreenerRoute {
@@ -109,15 +112,16 @@ function routeForScreener(screener: typeof SCREENER_IDS[number], sub: Sub, limit
     case 'pre-earnings-iv':
       return { path: '/scanner/pre-earnings-iv-expansion', query: { limit: limitStr } };
     case 'regime-stress': {
-      // Dual-mode at the endpoint: mode=level (default) is the stress
-      // leaderboard, mode=change is the biggest-regime-change feed.
-      const mode = sub.metric === 'regime' ? 'change' : 'level';
-      return { path: '/scanner/regime-stress', query: { limit: limitStr, mode } };
+      // Always level mode. To get the DoD-change view, callers must use
+      // screener='dod-change' with metric='regime'. Silently flipping on
+      // a stray `metric` arg made the tool return a different leaderboard
+      // than its name promised.
+      return { path: '/scanner/regime-stress', query: { limit: limitStr, mode: 'level' } };
     }
     case 'put-skew': {
-      // mode=level → put skew leaders; mode=change → biggest skew change.
-      const mode = sub.metric === 'skew' ? 'change' : 'level';
-      return { path: '/scanner/skew', query: { limit: limitStr, mode } };
+      // Always level mode. DoD skew change lives at
+      // screener='dod-change' with metric='skew'.
+      return { path: '/scanner/skew', query: { limit: limitStr, mode: 'level' } };
     }
     case 'dod-change': {
       const metric = sub.metric;
@@ -156,8 +160,35 @@ function routeForScreener(screener: typeof SCREENER_IDS[number], sub: Sub, limit
       return { path: '/scanner/unusual-directional', query: { limit: limitStr, side: sub.side } };
     }
     case 'market-trends': {
-      const days = sub.days ?? 90;
-      return { path: '/scanner/market-trends', query: { days: String(days) } };
+      // Pass days through if provided; otherwise let the proxy apply its
+      // own default (365). Caps match the proxy (1..730).
+      const query: Record<string, string> = {};
+      if (sub.days != null) query.days = String(sub.days);
+      return { path: '/scanner/market-trends', query };
+    }
+    case 'earnings-calendar': {
+      // Default to the next 14 days from today — same window the Morning
+      // Report uses. `days` overrides the window size; `symbol` filters.
+      // Cap at 90 days: earnings calendars get noisy past the next
+      // quarter and the Morning Report UI never widens beyond that.
+      const windowDays = sub.days ?? 14;
+      if (windowDays > 90) {
+        throw new Error("earnings-calendar 'days' must be between 1 and 90");
+      }
+      // All-UTC arithmetic: mixing local setDate with UTC toISOString
+      // would flip `today` to tomorrow during US evening hours.
+      const today = new Date();
+      const from = today.toISOString().slice(0, 10);
+      const toDate = new Date(today);
+      toDate.setUTCDate(toDate.getUTCDate() + windowDays);
+      const to = toDate.toISOString().slice(0, 10);
+      const query: Record<string, string> = {
+        from,
+        to,
+        limit: limitStr,
+      };
+      if (sub.symbol) query.symbol = sub.symbol.toUpperCase();
+      return { path: '/earnings-calendar', query };
     }
     default: {
       const exhaustive: never = screener;
@@ -180,7 +211,8 @@ export function register(server: McpServer, client: ProxyClient): void {
       mode: z.enum(['pinning', 'divergence']).optional().describe('Required for max-pain.'),
       direction: z.enum(['all', 'up', 'down']).optional().describe('Optional direction filter for dod-change on gex/iv/put-call metrics.'),
       threshold: z.number().min(0).optional().describe('Only for unusual: min volume-to-open-interest ratio. Default 1.0.'),
-      days: z.number().int().min(1).max(365).optional().describe('Only for market-trends: history length in days. Default 90.'),
+      days: z.number().int().min(1).max(730).optional().describe('For market-trends: history length in days (1..730). For earnings-calendar: forward window size in days (1..90, default 14). Earnings-calendar enforces the 90-day cap at runtime.'),
+      symbol: z.string().optional().describe('Only for earnings-calendar: filter to a single ticker.'),
     },
     toolHandler(async (args) => {
       const screener = args.screener as typeof SCREENER_IDS[number];
@@ -193,6 +225,7 @@ export function register(server: McpServer, client: ProxyClient): void {
         direction: args.direction as Sub['direction'],
         threshold: args.threshold as number | undefined,
         days: args.days as number | undefined,
+        symbol: args.symbol as string | undefined,
       };
       const limit = (args.limit as number) ?? 15;
 

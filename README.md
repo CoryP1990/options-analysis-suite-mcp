@@ -1,18 +1,6 @@
 # Options Analysis Suite — AI Integration
 
-MCP server that gives Claude, ChatGPT, and Perplexity direct access to your options analysis data, 45 tools, and personalized trade recommendations.
-
-## How It Works in Practice
-
-You're running an FFT mispricing scan across your portfolio tickers. On another tab, you've got the GEX chart open for SPY and you're watching dealer positioning shift. You run a Heston calibration on NVDA and the model says calls are 12% cheap relative to the surface. Your portfolio is long delta and you're not sure if you should hedge or press.
-
-Ask the AI: "Based on my current positions and risk profile, what should I do about NVDA?"
-
-It already knows. It pulls your portfolio snapshot — every position, every Greek, your net delta and gamma exposure. It sees the FFT scan flagging NVDA calls as underpriced. It checks your risk analysis — your VaR, your beta exposure, your stress test results. It reads the market regime score and sees we're in a normal environment. It pulls NVDA's IV percentile, the earnings date, analyst consensus, insider activity, and short interest.
-
-Then it gives you a specific trade: "Sell the April 185 put to fund the April 195/210 call spread — your FFT scan confirms the calls are cheap, your portfolio needs more upside exposure, and earnings are 3 weeks out so you'll capture the IV crush on the short put." That's not generic advice from a chatbot. That's a copilot that's looking at your screens.
-
-No copy-pasting data between tabs. No explaining your portfolio to the AI. No context-switching. Every calculation you've run, every snapshot you've taken, every risk metric you've computed — the AI sees it all, in real time, and gives you actionable recommendations grounded in your actual data.
+MCP server that gives Claude, ChatGPT, and Perplexity direct access to your options analysis data, market research tools, portfolio risk snapshots, and platform context.
 
 ## Supported Platforms
 
@@ -24,9 +12,9 @@ No copy-pasting data between tabs. No explaining your portfolio to the AI. No co
 
 ## Current Tool Surface
 
-The MCP currently exposes **45 tools**:
+The MCP currently exposes **44 tools**:
 
-- **34 market and research tools**
+- **33 market and research tools** (includes a unified `run_screener` covering 16 options-market screeners)
 - **10 synced user-data tools**
 - **1 platform-context tool**
 
@@ -44,8 +32,7 @@ The MCP currently exposes **45 tools**:
 
 ### Flow, positioning, and market structure
 
-- **Most Active Options** (`get_most_active_options`) — Representative liquid contract flow leaders or aggregated ticker view
-- **Unusual Options** (`get_unusual_options`) — Representative unusual flow ranked by volume/open-interest behavior
+- **Screeners** (`run_screener`) — Unified leaderboard surface for all 16 options-market screeners (most-active, highest-oi, highest-iv, unusual, gex, model-divergence, regime-stress, term-backwardation, put-skew, delta-exposure, vega-exposure, pre-earnings-iv, dod-change, vrp, max-pain, unusual-directional) plus market-trends (time-series aggregates) and earnings-calendar (next-14-day forward window by default, widen via `days`, filter by `symbol`)
 - **Short Volume** (`get_short_volume`) — FINRA daily short-selling summaries
 - **Short Interest** (`get_short_interest`) — FINRA biweekly short interest with float-aware summaries
 - **Dark Pool / ATS** (`get_dark_pool_data`) — OTC and ATS weekly trading summaries
@@ -111,18 +98,17 @@ To give the assistant access to your personal analysis data:
 
 Without sync enabled, the assistant can still use the market and research tools.
 
-## Example questions you can ask:
+## Example Prompts
 
-- "According to my Variance Gamma and Black-Scholes calculations for GOOG, what do the Greeks say I'll lose on my position over the weekend?"
-- "Compare my Heston vs SABR calibrations for SPY — which model fits the current skew better and what does that imply for my put spreads?"
-- "My portfolio delta is showing +450 — given the current market regime and META earnings next week, should I hedge? What structure would you recommend?"
-- "Look at my GEX analysis for TSLA — where are the key gamma walls and what happens to my position if we break through the put wall?"
-- "Show me all my analyses where volatility was above 40% in the last two weeks. Were any of those good short vol entries?"
-- "What's the theta decay on my NVDA straddle through the weekend and into Monday's economic data releases?"
-- "Compare the dark pool activity and short interest trend for AMD — is institutional flow confirming or contradicting the bullish options skew?"
-- "Based on my risk metrics and current VaR, how much would a 2008-style stress event impact my portfolio?"
-- "Is META IV expensive right now? Should I be buying or selling options?"
-- "Explain what my Heston calibration results mean in plain English"
+- "Is AAPL IV expensive relative to its last six months?"
+- "Show me my most recent AAPL pricing runs and tell me which model had the highest edge."
+- "Summarize my latest AI Compute Suite run and tell me which models disagreed most."
+- "What do the exposure sweep key levels from my most recent compute run imply for my SPY positions?"
+- "How has my portfolio delta and gamma changed over the last few snapshots?"
+- "Summarize current short interest, dark pool activity, and FTD behavior for AMC."
+- "What does the current market regime say about stress, rates, and dealer positioning?"
+- "Pull recent SEC filings and analyst changes for TSLA."
+- "What are the most active and most unusual options contracts right now?"
 
 ## Privacy
 

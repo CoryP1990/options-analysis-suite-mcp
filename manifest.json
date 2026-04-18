@@ -77,7 +77,6 @@
     { "name": "get_dividends", "description": "Get per-symbol dividend history with ex-dates, cash amounts, and payment metadata" },
     { "name": "get_yield_curve", "description": "Get the US Treasury yield curve with key rates, inversion flags, and compact trend samples by default; use full=true for the raw history payload" },
     { "name": "get_insider_trading", "description": "Get insider trading with grouped open-market buy/sell events and summarized administrative activity" },
-    { "name": "get_most_active_options", "description": "Get the most active options flow; default contract view returns representative liquid leaders, with view=ticker for aggregated underlying activity" },
     { "name": "get_risk_free_rate", "description": "Get the current 10Y Treasury-based benchmark served by the platform risk-free-rate endpoint, with a note to use get_yield_curve for shorter maturities" },
     { "name": "get_options_analytics_history", "description": "Get historical daily analytics snapshots (IV, skew, expected move, rates/dividend yield, GEX/DEX/VEX, net vanna/charm/vomma) — for walls and current Greek exposures use get_regime_symbol" },
     { "name": "get_iv_surface", "description": "Get IV surface/skew across strikes and expirations" },
@@ -110,8 +109,8 @@
     { "name": "query_analysis", "description": "Query analysis history with numeric filters (delta, volatility, DTE ranges), with near-identical reruns collapsed in the default view" },
     { "name": "get_account_info", "description": "Get structured current-user account info, subscription status, and MCP capabilities such as web search" },
     { "name": "get_compute_runs", "description": "Get user's AI Compute Suite run history with compact run summaries, exposure key levels, and representative position/model outputs; use full=true for raw synced runs" },
-    { "name": "get_unusual_options", "description": "Get unusual options flow ranked by volume-to-open-interest ratio; default contract view returns representative unusual flow, with view=ticker for aggregated underlyings" },
-    { "name": "get_company_profile", "description": "Get a compact normalized company profile with float metrics, identifiers, and a trimmed description; use full=true for the raw synced row" }
+    { "name": "get_company_profile", "description": "Get a compact normalized company profile with float metrics, identifiers, and a trimmed description; use full=true for the raw synced row" },
+    { "name": "run_screener", "description": "Run one of 16 options-market screeners (most-active, highest-oi, highest-iv, unusual, gex, model-divergence, regime-stress, term-backwardation, put-skew, delta-exposure, vega-exposure, pre-earnings-iv, dod-change, vrp, max-pain, unusual-directional) plus market-trends (time-series aggregates) and earnings-calendar (next-14-days upcoming earnings, widen with days up to 90). Pick via the screener enum; sub-params (view, index, metric, side, mode, direction, threshold, days, symbol) apply only to the screener that needs them. earnings-calendar returns a bare array of rows; every other screener returns a wrapped payload" }
   ],
   "compatibility": {
     "platforms": ["darwin", "win32", "linux"]

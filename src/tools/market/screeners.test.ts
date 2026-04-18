@@ -39,8 +39,8 @@ async function run(args: Record<string, unknown>) {
 }
 
 describe('run_screener — enum coverage', () => {
-  test('exposes exactly 17 screener ids (16 families + market-trends)', () => {
-    expect(SCREENER_IDS).toHaveLength(17);
+  test('exposes 18 screener ids (16 families + market-trends + earnings-calendar)', () => {
+    expect(SCREENER_IDS).toHaveLength(18);
   });
 });
 
@@ -83,7 +83,7 @@ describe('run_screener — single-view leaderboards', () => {
   });
 });
 
-describe('run_screener — regime-stress and put-skew default to level mode', () => {
+describe('run_screener — regime-stress and put-skew always route to mode=level', () => {
   test('regime-stress without metric -> mode=level', async () => {
     const call = await run({ screener: 'regime-stress' });
     expect(call.path).toBe('/scanner/regime-stress');
@@ -92,6 +92,18 @@ describe('run_screener — regime-stress and put-skew default to level mode', ()
 
   test('put-skew without metric -> mode=level', async () => {
     const call = await run({ screener: 'put-skew' });
+    expect(call.path).toBe('/scanner/skew');
+    expect(call.params?.mode).toBe('level');
+  });
+
+  test('regime-stress ignores a stray metric=regime (does NOT silently switch to mode=change)', async () => {
+    const call = await run({ screener: 'regime-stress', metric: 'regime' });
+    expect(call.path).toBe('/scanner/regime-stress');
+    expect(call.params?.mode).toBe('level');
+  });
+
+  test('put-skew ignores a stray metric=skew (does NOT silently switch to mode=change)', async () => {
+    const call = await run({ screener: 'put-skew', metric: 'skew' });
     expect(call.path).toBe('/scanner/skew');
     expect(call.params?.mode).toBe('level');
   });
@@ -126,6 +138,17 @@ describe('run_screener — dod-change', () => {
     expect(result.content[0].text).toContain("metric: 'gex' | 'iv'");
   });
 
+  test('dod-change with wrong sub-param (side/mode) does NOT satisfy the required metric check', async () => {
+    const harness = createHarness();
+    const resultWithSide = await harness.handler({ screener: 'dod-change', side: 'high' });
+    expect(resultWithSide.isError).toBe(true);
+    expect(resultWithSide.content[0].text).toContain("metric: 'gex' | 'iv'");
+
+    const resultWithMode = await harness.handler({ screener: 'dod-change', mode: 'pinning' });
+    expect(resultWithMode.isError).toBe(true);
+    expect(resultWithMode.content[0].text).toContain("metric: 'gex' | 'iv'");
+  });
+
   test('direction=up passes through; direction=all is stripped', async () => {
     const upCall = await run({ screener: 'dod-change', metric: 'gex', direction: 'up' });
     expect(upCall.params?.direction).toBe('up');
@@ -154,6 +177,13 @@ describe('run_screener — vrp / max-pain / unusual-directional require a sub-pa
     expect(result.content[0].text).toContain("side: 'high' | 'low'");
   });
 
+  test('vrp with side=call (wrong side kind — Zod schema allows all four) still throws high|low', async () => {
+    const harness = createHarness();
+    const result = await harness.handler({ screener: 'vrp', side: 'call' });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("side: 'high' | 'low'");
+  });
+
   test('max-pain pinning + divergence route to separate endpoints', async () => {
     const pinning = await run({ screener: 'max-pain', mode: 'pinning' });
     expect(pinning.path).toBe('/scanner/max-pain-pinning');
@@ -165,6 +195,13 @@ describe('run_screener — vrp / max-pain / unusual-directional require a sub-pa
   test('max-pain without mode throws', async () => {
     const harness = createHarness();
     const result = await harness.handler({ screener: 'max-pain' });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("mode: 'pinning' | 'divergence'");
+  });
+
+  test('max-pain with side (wrong sub-param) still throws mode-required', async () => {
+    const harness = createHarness();
+    const result = await harness.handler({ screener: 'max-pain', side: 'high' });
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain("mode: 'pinning' | 'divergence'");
   });
@@ -183,17 +220,101 @@ describe('run_screener — vrp / max-pain / unusual-directional require a sub-pa
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain("side: 'call' | 'put'");
   });
+
+  test('unusual-directional with mode (wrong sub-param) still throws side-required', async () => {
+    const harness = createHarness();
+    const result = await harness.handler({ screener: 'unusual-directional', mode: 'pinning' });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("side: 'call' | 'put'");
+  });
+
+  test('unusual-directional with side=high (wrong side kind) still throws call|put', async () => {
+    const harness = createHarness();
+    const result = await harness.handler({ screener: 'unusual-directional', side: 'high' });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("side: 'call' | 'put'");
+  });
 });
 
 describe('run_screener — market-trends', () => {
-  test('defaults to days=90', async () => {
+  test('without days param: routes to /scanner/market-trends and lets proxy apply its default', async () => {
     const call = await run({ screener: 'market-trends' });
     expect(call.path).toBe('/scanner/market-trends');
-    expect(call.params?.days).toBe('90');
+    expect(call.params?.days).toBeUndefined();
   });
 
   test('passes days through', async () => {
     const call = await run({ screener: 'market-trends', days: 30 });
     expect(call.params?.days).toBe('30');
+  });
+});
+
+describe('run_screener — earnings-calendar', () => {
+  test('defaults to a 14-day forward window on /earnings-calendar', async () => {
+    const call = await run({ screener: 'earnings-calendar' });
+    expect(call.path).toBe('/earnings-calendar');
+    expect(call.params?.from).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(call.params?.to).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+
+    const from = new Date(call.params!.from as string);
+    const to = new Date(call.params!.to as string);
+    const deltaDays = Math.round((to.getTime() - from.getTime()) / 86400000);
+    expect(deltaDays).toBe(14);
+  });
+
+  test('custom days widens the forward window', async () => {
+    const call = await run({ screener: 'earnings-calendar', days: 30 });
+    const from = new Date(call.params!.from as string);
+    const to = new Date(call.params!.to as string);
+    const deltaDays = Math.round((to.getTime() - from.getTime()) / 86400000);
+    expect(deltaDays).toBe(30);
+  });
+
+  test('symbol filter passes through uppercased', async () => {
+    const call = await run({ screener: 'earnings-calendar', symbol: 'aapl' });
+    expect(call.params?.symbol).toBe('AAPL');
+  });
+
+  test('days > 90 throws a descriptive error (even though the Zod schema cap is 730 for market-trends)', async () => {
+    const harness = createHarness();
+    const result = await harness.handler({ screener: 'earnings-calendar', days: 91 });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("earnings-calendar 'days' must be between 1 and 90");
+  });
+
+  test('days = 90 (boundary) is accepted', async () => {
+    const call = await run({ screener: 'earnings-calendar', days: 90 });
+    const from = new Date(call.params!.from as string);
+    const to = new Date(call.params!.to as string);
+    const deltaDays = Math.round((to.getTime() - from.getTime()) / 86400000);
+    expect(deltaDays).toBe(90);
+  });
+});
+
+describe('run_screener — irrelevant sub-params are ignored', () => {
+  test('most-active ignores metric/side/mode', async () => {
+    const call = await run({ screener: 'most-active', metric: 'gex', side: 'high', mode: 'pinning' });
+    expect(call.path).toBe('/scanner/most-active');
+    expect(call.params?.type).toBe('ticker');
+    expect(call.params).not.toHaveProperty('metric');
+    expect(call.params).not.toHaveProperty('side');
+    expect(call.params).not.toHaveProperty('mode');
+  });
+
+  test('delta-exposure ignores view/index/metric/side', async () => {
+    const call = await run({ screener: 'delta-exposure', view: 'contract', index: 'sp500', metric: 'iv', side: 'low' });
+    expect(call.path).toBe('/scanner/delta-exposure-leaders');
+    expect(call.params).not.toHaveProperty('type');
+    expect(call.params).not.toHaveProperty('index');
+    expect(call.params).not.toHaveProperty('metric');
+    expect(call.params).not.toHaveProperty('side');
+  });
+
+  test('vrp ignores view/index/metric', async () => {
+    const call = await run({ screener: 'vrp', side: 'high', view: 'contract', index: 'etf', metric: 'gex' });
+    expect(call.path).toBe('/scanner/vrp');
+    expect(call.params?.direction).toBe('high');
+    expect(call.params).not.toHaveProperty('type');
+    expect(call.params).not.toHaveProperty('metric');
   });
 });

@@ -18,7 +18,6 @@ import { register as fundamentals } from './market/fundamentals.js';
 import { register as dividends } from './market/dividends.js';
 import { register as yieldCurve } from './market/yieldCurve.js';
 import { register as insiderTrading } from './market/insiderTrading.js';
-import { register as mostActiveOptions } from './market/mostActiveOptions.js';
 import { register as riskFreeRate } from './market/riskFreeRate.js';
 import { register as optionsAnalyticsHistory } from './market/optionsAnalyticsHistory.js';
 import { register as ivSurface } from './market/ivSurface.js';
@@ -38,7 +37,6 @@ import { register as darkPoolData } from './market/darkPoolData.js';
 import { register as tradingHalts } from './market/tradingHalts.js';
 import { register as activistFilings } from './market/activistFilings.js';
 import { register as webSearch } from './market/webSearch.js';
-import { register as unusualOptions } from './market/unusualOptions.js';
 import { register as companyProfile } from './market/companyProfile.js';
 import { register as regimeSymbol } from './market/regimeSymbol.js';
 import { register as screeners } from './market/screeners.js';
@@ -63,7 +61,9 @@ export function registerAllTools(
   client: ProxyClient,
   tokenManager: TokenManager,
 ): void {
-  // Market data (28 tools including web search, unusual options, company profile, regime symbol, unified screeners)
+  // Market data tools (see tool files under ./market/). Individual
+  // most-active / unusual convenience tools were folded into
+  // run_screener to keep the options-market surface consistent.
   ivHistory(server, client);
   greeksHistory(server, client);
   marketRegime(server, client);
@@ -74,7 +74,6 @@ export function registerAllTools(
   dividends(server, client);
   yieldCurve(server, client);
   insiderTrading(server, client);
-  mostActiveOptions(server, client);
   riskFreeRate(server, client);
   optionsAnalyticsHistory(server, client);
   ivSurface(server, client);
@@ -94,7 +93,6 @@ export function registerAllTools(
   tradingHalts(server, client);
   activistFilings(server, client);
   webSearch(server, client);
-  unusualOptions(server, client);
   companyProfile(server, client);
   regimeSymbol(server, client);
   screeners(server, client);
