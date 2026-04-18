@@ -14,7 +14,7 @@ import {
 export function register(server: McpServer, client: ProxyClient): void {
   server.tool(
     'get_portfolio_snapshot',
-    'Get the user\'s portfolio snapshots showing position count, total value, P&L, aggregate Greeks (delta, gamma, theta, vega), and summary allocation. Returns 3 most recent distinct snapshots by default; increase limit for more. Per-position breakdowns are summarized — request full data for individual positions.',
+    'Get the user\'s portfolio snapshots showing position count, total value, P&L, aggregate Greeks, and summary allocation. Greeks are in market-scaled raw native units (no $): first-order delta, gamma, theta/day, vega/1% IV, rho/1% rate; second-order vanna/1% IV, charm/day (delta decay), vomma/1% IV², veta/day (vega decay, sign-flipped for market convention). For $-impact views of the same Greeks, use get_risk_snapshot. Returns 3 most recent distinct snapshots by default; increase limit for more. Per-position breakdowns are summarized — request full data for individual positions.',
     {
       limit: z.number().int().min(1).max(50).default(3).describe('Max snapshots (default 3)'),
       full: z.boolean().default(false).describe('Return full untrimmed data including detail tables, correlation matrices, and per-position breakdowns'),

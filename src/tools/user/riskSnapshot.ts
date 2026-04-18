@@ -7,7 +7,7 @@ import { dedupeRiskSnapshotRecords, replaceDuplicatedDataField, shapeRiskDetails
 export function register(server: McpServer, client: ProxyClient): void {
   server.tool(
     'get_risk_snapshot',
-    'Get the user\'s risk analysis snapshots: Value-at-Risk (95%/99%), Conditional VaR, portfolio beta, Sharpe ratio, maximum drawdown, volatility, and stress test results. Returns 3 most recent distinct snapshots by default; increase limit for more. Correlation matrices omitted — request full data if needed.',
+    'Get the user\'s risk analysis snapshots: Value-at-Risk (95%/99%), Conditional VaR, portfolio beta, Sharpe ratio, maximum drawdown, volatility, stress test results, and aggregate Greek $-impact exposure. $-impact Greeks include first-order dollarDelta, dollarGamma (per 1% move), dollarTheta/day, dollarVega (per 1% IV), dollarRho (per 1% rate) and second-order dollarVanna (per 1% IV move), dollarCharm (daily $Δ decay), dollarVomma (per 1% IV), dollarVeta (daily vega decay). For market-scaled raw Greek units (no $), use get_portfolio_snapshot. Returns 3 most recent distinct snapshots by default; increase limit for more. Correlation matrices omitted — request full data if needed.',
     {
       limit: z.number().int().min(1).max(50).default(3).describe('Max snapshots (default 3)'),
       full: z.boolean().default(false).describe('Return full untrimmed data including detail tables, correlation matrices, and per-position breakdowns'),

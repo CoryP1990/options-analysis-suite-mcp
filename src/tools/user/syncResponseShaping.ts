@@ -221,10 +221,19 @@ function getPortfolioSnapshotSignature(record: any): unknown {
     totalPnL: data?.totalPnL,
     totalPnLPercent: data?.totalPnLPercent,
     cashBalance: data?.cashBalance,
+    // First-order Greeks (market-scaled raw units, no $): delta in shares,
+    // gamma, theta/day, vega/1% IV, rho/1% rate.
     delta: data?.delta,
     gamma: data?.gamma,
     theta: data?.theta,
     vega: data?.vega,
+    rho: data?.rho,
+    // Second-order Greeks (market-scaled): vanna/1% IV, charm/day,
+    // vomma/1% IV², veta/day.
+    vanna: data?.vanna,
+    charm: data?.charm,
+    vomma: data?.vomma,
+    veta: data?.veta,
     topHoldings,
     greeks: detailGreeks
       ? {
@@ -252,6 +261,19 @@ function getRiskSnapshotSignature(record: any): unknown {
     maxDrawdown: data?.maxDrawdown,
     sharpeRatio: data?.sharpeRatio,
     marginUsagePercent: data?.marginUsagePercent,
+    // Aggregate Greek $-impact (Risk-page convention). First-order:
+    // dollarDelta exposure, dollarGamma per 1% move, dollarTheta/day,
+    // dollarVega/1% IV, dollarRho/1% rate. Second-order: dollarVanna/1% IV,
+    // dollarCharm/day, dollarVomma/1% IV, dollarVeta/day.
+    dollarDelta: data?.dollarDelta,
+    dollarGamma: data?.dollarGamma,
+    dollarTheta: data?.dollarTheta,
+    dollarVega: data?.dollarVega,
+    dollarRho: data?.dollarRho,
+    dollarVanna: data?.dollarVanna,
+    dollarCharm: data?.dollarCharm,
+    dollarVomma: data?.dollarVomma,
+    dollarVeta: data?.dollarVeta,
     fullMargin: fullMargin
       ? {
           usagePercent: fullMargin.usagePercent,
