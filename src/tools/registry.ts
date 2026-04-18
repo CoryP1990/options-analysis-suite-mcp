@@ -41,6 +41,7 @@ import { register as webSearch } from './market/webSearch.js';
 import { register as unusualOptions } from './market/unusualOptions.js';
 import { register as companyProfile } from './market/companyProfile.js';
 import { register as regimeSymbol } from './market/regimeSymbol.js';
+import { register as screeners } from './market/screeners.js';
 
 // Platform info
 import { registerPlatformInfo } from './platformInfo.js';
@@ -62,7 +63,7 @@ export function registerAllTools(
   client: ProxyClient,
   tokenManager: TokenManager,
 ): void {
-  // Market data (27 tools including web search, unusual options, company profile, regime symbol)
+  // Market data (28 tools including web search, unusual options, company profile, regime symbol, unified screeners)
   ivHistory(server, client);
   greeksHistory(server, client);
   marketRegime(server, client);
@@ -96,6 +97,7 @@ export function registerAllTools(
   unusualOptions(server, client);
   companyProfile(server, client);
   regimeSymbol(server, client);
+  screeners(server, client);
 
   // Platform info (1 tool)
   registerPlatformInfo(server);
