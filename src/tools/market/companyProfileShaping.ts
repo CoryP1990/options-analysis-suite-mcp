@@ -1,7 +1,6 @@
 type CompanyProfileResponse = {
   symbol?: string | null;
   company_name?: string | null;
-  image?: string | null;
   sector?: string | null;
   industry?: string | null;
   ceo?: string | null;
@@ -86,7 +85,6 @@ export function shapeCompanyProfileResponse(
     isEtf: typeof payload.is_etf === 'boolean' ? payload.is_etf : null,
     isActivelyTrading: typeof payload.is_actively_trading === 'boolean' ? payload.is_actively_trading : null,
     description,
-    image: payload.image ?? null,
     updatedAt: payload.updated_at ?? null,
     ...(trimmed ? { _description_note: `Company description trimmed to ${descriptionCap} characters. Use full=true for the raw profile row.` } : {}),
     ...(payload.error ? { error: payload.error } : {}),
