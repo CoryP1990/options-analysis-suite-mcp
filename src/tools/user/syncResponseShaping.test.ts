@@ -365,11 +365,11 @@ describe('shapeRiskDetails', () => {
         buyingPower: 70000,
         usagePercent: 32,
       },
-      _omitted_meta: {
-        correlation_matrix: true,
-        mc_var_details: true,
-        position_contributions: 2,
-      },
+      _omitted: [
+        'correlation matrix',
+        'Monte Carlo VaR details',
+        'position contributions (2 items)',
+      ],
     });
   });
 
@@ -404,7 +404,7 @@ describe('shapePortfolioDetails', () => {
         dollarDelta: 15000.123456,
         dollarGamma: 42.123456,
       },
-      _omitted_arrays: { positionGreeks: 1, fullAllocation: 1 },
+      _omitted: ['position greeks (1 items)', 'full allocation (1 items)'],
     });
   });
 });

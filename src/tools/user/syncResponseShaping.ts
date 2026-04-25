@@ -550,13 +550,13 @@ export function shapeRiskDetails(details: unknown): unknown {
     ...summary
   } = details as Record<string, unknown>;
 
-  const omitted: Record<string, unknown> = {};
-  if (correlationMatrix) omitted.correlation_matrix = true;
-  if (mcVarDetails) omitted.mc_var_details = true;
+  const omitted: string[] = [];
+  if (correlationMatrix) omitted.push('correlation matrix');
+  if (mcVarDetails) omitted.push('Monte Carlo VaR details');
   if (Array.isArray(positionContributions)) {
-    omitted.position_contributions = positionContributions.length;
+    omitted.push(`position contributions (${positionContributions.length} items)`);
   }
-  if (Object.keys(omitted).length) summary._omitted_meta = omitted;
+  if (omitted.length) summary._omitted = omitted;
   return summary;
 }
 
@@ -568,11 +568,12 @@ export function shapeRiskDetails(details: unknown): unknown {
 export function shapePortfolioDetails(details: unknown): unknown {
   if (details == null || typeof details !== 'object' || Array.isArray(details)) return details;
   const summary: Record<string, unknown> = {};
-  const omittedArrays: Record<string, number> = {};
+  const omitted: string[] = [];
 
   for (const [key, value] of Object.entries(details)) {
     if (Array.isArray(value)) {
-      omittedArrays[key] = value.length;
+      const human = key.replace(/([A-Z])/g, ' $1').toLowerCase().trim();
+      omitted.push(`${human} (${value.length} items)`);
       continue;
     }
     if (key === 'greeks' && value && typeof value === 'object' && !Array.isArray(value)) {
@@ -587,7 +588,7 @@ export function shapePortfolioDetails(details: unknown): unknown {
     summary[key] = roundNestedNumbers(value);
   }
 
-  if (Object.keys(omittedArrays).length) summary._omitted_arrays = omittedArrays;
+  if (omitted.length) summary._omitted = omitted;
   return summary;
 }
 

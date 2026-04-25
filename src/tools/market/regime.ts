@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ProxyClient } from '../../proxy/proxyClient.js';
 import { toolHandler } from '../helpers.js';
-import { shapeMarketRegimeResponse } from './marketRegimeShaping.js';
+import { shapeMarketRegimeResponse, humanizeDrivers } from './marketRegimeShaping.js';
 
 /**
  * Unified regime tool. Replaces get_market_regime, get_intraday_regime,
@@ -102,11 +102,18 @@ export function register(server: McpServer, client: ProxyClient): void {
         const res = await client.get(`/regime/intraday/${encodeURIComponent(symbol)}`, params) as any;
         // Rename per-scan `scope` (symbol classification tier) to `symbolTier` so it
         // doesn't collide with the top-level `scope` input parameter at the MCP boundary.
+        // Also humanize per-scan driver feature names (snake_case → "Title Case") so
+        // an LLM relaying the response doesn't surface backend identifiers to end users.
         if (res?.scans && Array.isArray(res.scans)) {
           for (const scan of res.scans) {
-            if (scan && typeof scan === 'object' && 'scope' in scan) {
-              scan.symbolTier = scan.scope;
-              delete scan.scope;
+            if (scan && typeof scan === 'object') {
+              if ('scope' in scan) {
+                scan.symbolTier = scan.scope;
+                delete scan.scope;
+              }
+              if (Array.isArray(scan.drivers)) {
+                scan.drivers = humanizeDrivers(scan.drivers);
+              }
             }
           }
         }
@@ -131,6 +138,14 @@ export function register(server: McpServer, client: ProxyClient): void {
       if ('scope' in res) {
         res.symbolTier = res.scope;
         delete res.scope;
+      }
+
+      // Humanize each history entry's driver feature names (snake_case → "Title Case")
+      // so backend identifiers don't surface to end users when the LLM relays the response.
+      for (const entry of res.history) {
+        if (entry && typeof entry === 'object' && Array.isArray(entry.drivers)) {
+          entry.drivers = humanizeDrivers(entry.drivers);
+        }
       }
 
       if (full) {

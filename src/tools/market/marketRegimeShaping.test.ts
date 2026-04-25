@@ -47,10 +47,14 @@ describe('shapeMarketRegimeResponse', () => {
       netGamma: 123456,
     });
     expect(market.feature_z_scores).toEqual({
-      curvature: 0.1187,
-      vol_level: 2.0733,
-      turbulence: 0.7265,
+      'Curvature': 0.1187,
+      'Vol Level': 2.0733,
+      'Turbulence': 0.7265,
     });
+    expect(market.drivers).toEqual([
+      { feature: 'Vol Level', contribution: 0.2488, z: 2.0733 },
+      { feature: 'Term Structure', contribution: 0.145, z: 1.4499 },
+    ]);
     expect(market.vector).toBeUndefined();
     expect(market._feature_vector_meta).toEqual({ raw_internals_omitted: true });
   });

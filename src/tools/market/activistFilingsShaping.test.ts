@@ -62,7 +62,7 @@ describe('shapeActivistFilingsResponse', () => {
     expect(shaped.currentHolderSnapshot[1].filerName).toBe('BlackRock, Inc.');
     expect(shaped.recentBelowThreshold).toHaveLength(1);
     expect(shaped.recentBelowThreshold[0].filerName).toBe('The Vanguard Group');
-    expect(shaped._below_threshold_meta).toEqual({ summarized_separately: true });
+    expect(shaped._belowThresholdMeta).toEqual({ summarizedSeparately: true });
   });
 
   it('returns a stable empty current-holder view when only below-threshold filings exist', () => {
@@ -85,6 +85,6 @@ describe('shapeActivistFilingsResponse', () => {
 
     expect(shaped.currentHolderSnapshot).toEqual([]);
     expect(shaped.recentBelowThreshold).toHaveLength(1);
-    expect(shaped._snapshot_status).toBe('no_current_above_threshold_holders');
+    expect(shaped._snapshotStatus).toBe('No current above-threshold holders');
   });
 });

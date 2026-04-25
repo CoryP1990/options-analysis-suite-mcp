@@ -90,7 +90,6 @@ describe('shapeInsiderTradingResponse', () => {
       {
         reportingName: 'Taneja Vaibhav',
         typeOfOwner: 'officer: Chief Financial Officer',
-        category: 'open_market_sell',
         categoryLabel: 'Open-market sell',
         formType: '4',
         transactionDate: '2026-03-06',
@@ -109,10 +108,10 @@ describe('shapeInsiderTradingResponse', () => {
     expect(response.summary.openMarketSells).toBe(1);
     expect(response.summary.openMarketBuys).toBe(0);
     expect(response.summary.activityBreakdown).toEqual({
-      exercise_or_conversion: 1,
-      open_market_sell: 1,
+      'Exercise or conversion': 1,
+      'Open-market sell': 1,
     });
-    expect(response._insider_trades_meta?.kind).toBe('open_market_events');
+    expect((response as any)._insiderTradesMeta?.kind).toBe('Open-market events');
   });
 
   test('falls back to administrative activity when no open-market buys or sells exist', () => {
@@ -147,17 +146,17 @@ describe('shapeInsiderTradingResponse', () => {
     }) as {
       insider_trades: Array<Record<string, unknown>>;
       summary: Record<string, unknown>;
-      _insider_trades_meta?: Record<string, unknown>;
-      _insider_trades_status?: string;
+      _insiderTradesMeta?: Record<string, unknown>;
+      _insiderTradesStatus?: string;
     };
 
     expect(response.insider_trades).toHaveLength(1);
-    expect(response.insider_trades[0]?.category).toBe('grant_or_award');
+    expect(response.insider_trades[0]?.categoryLabel).toBe('Grant or award');
     expect(response.summary.activityBreakdown).toEqual({
-      grant_or_award: 1,
-      initial_holding: 1,
+      'Grant or award': 1,
+      'Initial holding': 1,
     });
-    expect(response._insider_trades_meta?.no_recent_open_market_buys_or_sells).toBe(true);
+    expect(response._insiderTradesMeta?.noRecentOpenMarketBuysOrSells).toBe(true);
   });
 
   test('returns a grouped event-level summary for repeated sale rows', () => {
@@ -201,7 +200,7 @@ describe('shapeInsiderTradingResponse', () => {
     expect(response.insider_trades).toHaveLength(1);
     expect(response.insider_trades[0]).toMatchObject({
       reportingName: 'Olivan Javier',
-      category: 'open_market_sell',
+      categoryLabel: 'Open-market sell',
       sharesTransacted: 1334,
       directOrIndirect: 'mixed',
       acquisitionOrDisposition: 'D',
@@ -222,12 +221,12 @@ describe('shapeInsiderTradingResponse', () => {
     }) as {
       insider_trades: Array<Record<string, unknown>>;
       summary: Record<string, unknown>;
-      _insider_trades_meta?: Record<string, unknown>;
-      _insider_trades_status?: string;
+      _insiderTradesMeta?: Record<string, unknown>;
+      _insiderTradesStatus?: string;
     };
 
     expect(response.insider_trades).toEqual([]);
     expect(response.summary.groupedEvents).toBe(0);
-    expect(response._insider_trades_status).toBe('no_corporate_insider_filings_likely_etf');
+    expect(response._insiderTradesStatus).toBe('No corporate insider filings (likely ETF)');
   });
 });

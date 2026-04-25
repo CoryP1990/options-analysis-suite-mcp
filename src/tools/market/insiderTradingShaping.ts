@@ -337,7 +337,8 @@ export function groupInsiderTrades(rawTrades: unknown): GroupedInsiderTrade[] {
 function summarizeActivityCounts(groupedTrades: GroupedInsiderTrade[]): Record<string, number> {
   const counts: Record<string, number> = {};
   for (const trade of groupedTrades) {
-    counts[trade.category] = (counts[trade.category] ?? 0) + 1;
+    const label = trade.categoryLabel ?? categoryLabel(trade.category);
+    counts[label] = (counts[label] ?? 0) + 1;
   }
   return counts;
 }
@@ -364,7 +365,6 @@ export function shapeInsiderTradingResponse(payload: unknown, companyProfile?: u
   response.insider_trades = defaultTrades.map((trade) => ({
     reportingName: trade.reportingName,
     typeOfOwner: trade.typeOfOwner,
-    category: trade.category,
     categoryLabel: trade.categoryLabel,
     formType: trade.formType,
     transactionDate: trade.transactionDate,
@@ -395,25 +395,25 @@ export function shapeInsiderTradingResponse(payload: unknown, companyProfile?: u
   };
 
   if (signalTrades.length > 0) {
-    response._insider_trades_meta = {
-      kind: 'open_market_events',
+    response._insiderTradesMeta = {
+      kind: 'Open-market events',
       showing: defaultTrades.length,
-      total_grouped: groupedTrades.length,
-      administrative_summarized_in: 'summary.activityBreakdown',
+      totalGrouped: groupedTrades.length,
+      administrativeSummarizedIn: 'summary.activityBreakdown',
     };
   } else if (nonInitialTrades.length > 0) {
-    response._insider_trades_meta = {
-      kind: 'administrative_events',
+    response._insiderTradesMeta = {
+      kind: 'Administrative events',
       showing: defaultTrades.length,
-      total_grouped: groupedTrades.length,
-      no_recent_open_market_buys_or_sells: true,
+      totalGrouped: groupedTrades.length,
+      noRecentOpenMarketBuysOrSells: true,
     };
   } else if (groupedTrades.length > 0) {
-    response._insider_trades_status = 'no_form4_transactions_beyond_initial_holdings';
+    response._insiderTradesStatus = 'No Form 4 transactions beyond initial holdings';
   } else {
-    response._insider_trades_status = isLikelyEtfProfile(companyProfile)
-      ? 'no_corporate_insider_filings_likely_etf'
-      : 'no_recent_insider_activity';
+    response._insiderTradesStatus = isLikelyEtfProfile(companyProfile)
+      ? 'No corporate insider filings (likely ETF)'
+      : 'No recent insider activity';
   }
 
   return response;

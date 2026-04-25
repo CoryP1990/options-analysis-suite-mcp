@@ -65,6 +65,13 @@ function filingPriorityScore(filing: ActivistFiling): number {
   return score;
 }
 
+function humanizeOwnershipStatus(status: unknown): string | null {
+  if (typeof status !== 'string' || !status) return null;
+  if (status === 'above_threshold') return 'above threshold';
+  if (status === 'below_threshold') return 'below threshold';
+  return status;
+}
+
 function trimFiling(filing: ActivistFiling): Record<string, unknown> {
   return {
     formType: filing.formType ?? null,
@@ -73,7 +80,7 @@ function trimFiling(filing: ActivistFiling): Record<string, unknown> {
     sharesOwned: toNumber(filing.sharesOwned),
     percentOwnership: toNumber(filing.percentOwnership),
     ruleBasis: filing.ruleBasis ?? null,
-    ownershipStatus: filing.ownershipStatus ?? null,
+    ownershipStatus: humanizeOwnershipStatus(filing.ownershipStatus),
     purpose: filing.purpose ?? null,
     description: filing.description ?? null,
     url: filing.url ?? null,
@@ -122,10 +129,10 @@ export function shapeActivistFilingsResponse(payload: ActivistFilingsResponse): 
     currentHolderSnapshot,
     recentBelowThreshold,
     ...(currentHolderSnapshot.length > 0
-      ? { _snapshot_meta: { current_holder_snapshots: currentHolderSnapshot.length, total_filings: filings.length, prioritized_latest_per_filer: true } }
-      : { _snapshot_status: 'no_current_above_threshold_holders' }),
+      ? { _snapshotMeta: { currentHolderSnapshots: currentHolderSnapshot.length, totalFilings: filings.length, prioritizedLatestPerFiler: true } }
+      : { _snapshotStatus: 'No current above-threshold holders' }),
     ...(recentBelowThreshold.length > 0
-      ? { _below_threshold_meta: { summarized_separately: true } }
+      ? { _belowThresholdMeta: { summarizedSeparately: true } }
       : {}),
   };
 }
