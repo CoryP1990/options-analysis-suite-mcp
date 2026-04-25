@@ -580,6 +580,41 @@ describe('dedupePortfolioSnapshotRecords', () => {
     expect(deduped.omittedCount).toBe(1);
     expect(deduped.records.map((record) => record.timestamp)).toEqual([4000, 3000]);
   });
+
+  test('preserves portfolio snapshots that differ only in higher-order Greeks', () => {
+    const baseData = {
+      positionCount: 2,
+      totalValue: 100000,
+      totalPnL: 500,
+      totalPnLPercent: 0.5,
+      cashBalance: 25000,
+      delta: 12.5,
+      gamma: 1.2,
+      theta: -3.4,
+      vega: 22.1,
+      rho: 3,
+      topHoldings: [{ symbol: 'AAPL 250C', value: 5000, pnl: 10, weight: 0.05 }],
+    };
+    const details = { greeks: { totalRho: 3, dollarDelta: 1000, dollarGamma: 50 } };
+    const records = [
+      {
+        timestamp: 3000,
+        data: { ...baseData, vanna: -0.09, charm: -0.29, vomma: 0.26, veta: -1.01 },
+        details,
+      },
+      {
+        timestamp: 2000,
+        data: { ...baseData, vanna: -0.1, charm: -0.31, vomma: 0.28, veta: -1.04 },
+        details,
+      },
+    ];
+
+    const deduped = dedupePortfolioSnapshotRecords(records, 3);
+
+    expect(deduped.records).toHaveLength(2);
+    expect(deduped.omittedCount).toBe(0);
+    expect(deduped.records.map((record) => record.timestamp)).toEqual([3000, 2000]);
+  });
 });
 
 describe('dedupeRiskSnapshotRecords', () => {
@@ -778,6 +813,75 @@ describe('dedupeRiskSnapshotRecords', () => {
     expect(deduped.records).toHaveLength(2);
     expect(deduped.omittedCount).toBe(1);
     expect(deduped.records.map((record) => record.timestamp)).toEqual([4000, 3000]);
+  });
+
+  test('preserves risk snapshots that differ only in aggregate Greek dollar-impact fields', () => {
+    const baseData = {
+      portfolioValue: 166051,
+      var95: -1.37,
+      var99: -2.04,
+      cvar95: -1.71,
+      beta: 0.05,
+      volatility: 122.82,
+      correlation: 0.05,
+      maxDrawdown: 3.91,
+      sharpeRatio: 4.06,
+      marginUsagePercent: 46.85,
+    };
+    const details = {
+      fullMargin: {
+        usagePercent: 46.85,
+        marginUsed: 45585.84,
+        maintenanceReq: 39548.39,
+        marginAvailable: 51710.56,
+        buyingPower: 103421.13,
+        cashBalance: 53315.53,
+        buffer: 57748.01,
+        bufferPercent: 59.35,
+        isHighUsage: false,
+        isCritical: false,
+      },
+    };
+    const records = [
+      {
+        timestamp: 3000,
+        data: {
+          ...baseData,
+          dollarDelta: 153775.28,
+          dollarGamma: 1.15,
+          dollarTheta: -16.49,
+          dollarVega: 5.87,
+          dollarRho: 18.53,
+          dollarVanna: -66.39,
+          dollarCharm: -212.68,
+          dollarVomma: 0.26,
+          dollarVeta: -1.01,
+        },
+        details,
+      },
+      {
+        timestamp: 2000,
+        data: {
+          ...baseData,
+          dollarDelta: 153775.28,
+          dollarGamma: 1.15,
+          dollarTheta: -16.49,
+          dollarVega: 5.87,
+          dollarRho: 18.53,
+          dollarVanna: -70.08,
+          dollarCharm: -217.78,
+          dollarVomma: 0.28,
+          dollarVeta: -1.04,
+        },
+        details,
+      },
+    ];
+
+    const deduped = dedupeRiskSnapshotRecords(records, 3);
+
+    expect(deduped.records).toHaveLength(2);
+    expect(deduped.omittedCount).toBe(0);
+    expect(deduped.records.map((record) => record.timestamp)).toEqual([3000, 2000]);
   });
 });
 
