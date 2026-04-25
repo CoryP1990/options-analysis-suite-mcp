@@ -21,6 +21,9 @@ function createHarness(stubResponse: any = {}) {
     tool: (_name: string, _desc: string, _schema: unknown, handler: ToolHandler) => {
       captured.handler = handler;
     },
+    registerTool: (_name: string, _config: unknown, handler: ToolHandler) => {
+      captured.handler = handler;
+    },
   } as unknown as McpServer;
 
   register(fakeServer, fakeClient);
@@ -175,5 +178,56 @@ describe('get_regime — scope=symbol days>1 keeps full history', () => {
     const result = await handler({ scope: 'symbol', symbol: 'SPY', days: 5 });
     const parsed = JSON.parse(result.content[0].text);
     expect(parsed.history).toHaveLength(3);
+  });
+});
+
+describe('get_regime — symbolTier rename (avoid input/output `scope` collision)', () => {
+  test('scope=symbol days=1 emits `symbolTier` not `scope` for the tier value', async () => {
+    const stub = {
+      symbol: 'NVDA',
+      scope: 'bellwether',
+      history: [{ date: '2026-04-17', label: 'NORMAL' }],
+    };
+    const { handler } = createHarness(stub);
+    const result = await handler({ scope: 'symbol', symbol: 'NVDA' });
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed.symbolTier).toBe('bellwether');
+    expect(parsed.scope).toBeUndefined();
+  });
+
+  test('scope=symbol days>1 also renames top-level scope → symbolTier', async () => {
+    const stub = {
+      symbol: 'XLF',
+      scope: 'sector',
+      history: [
+        { date: '2026-04-15' },
+        { date: '2026-04-16' },
+        { date: '2026-04-17' },
+      ],
+    };
+    const { handler } = createHarness(stub);
+    const result = await handler({ scope: 'symbol', symbol: 'XLF', days: 5 });
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed.symbolTier).toBe('sector');
+    expect(parsed.scope).toBeUndefined();
+  });
+
+  test('scope=intraday renames per-scan `scope` → `symbolTier`', async () => {
+    const stub = {
+      symbol: 'SPY',
+      count: 2,
+      scans: [
+        { date: '2026-04-17', scan_time: '13:00', interval: 'midday', scope: 'bellwether', label: 'NORMAL' },
+        { date: '2026-04-17', scan_time: '14:30', interval: 'afternoon', scope: 'bellwether', label: 'ELEVATED' },
+      ],
+    };
+    const { handler } = createHarness(stub);
+    const result = await handler({ scope: 'intraday', symbol: 'SPY' });
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed.scans).toHaveLength(2);
+    for (const scan of parsed.scans) {
+      expect(scan.symbolTier).toBe('bellwether');
+      expect(scan.scope).toBeUndefined();
+    }
   });
 });

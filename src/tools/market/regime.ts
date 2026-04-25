@@ -99,7 +99,17 @@ export function register(server: McpServer, client: ProxyClient): void {
         const params: Record<string, string> = { days: String(intradayDays) };
         if (date) params.date = date;
         if (interval) params.interval = interval;
-        const res = await client.get(`/regime/intraday/${encodeURIComponent(symbol)}`, params);
+        const res = await client.get(`/regime/intraday/${encodeURIComponent(symbol)}`, params) as any;
+        // Rename per-scan `scope` (symbol classification tier) to `symbolTier` so it
+        // doesn't collide with the top-level `scope` input parameter at the MCP boundary.
+        if (res?.scans && Array.isArray(res.scans)) {
+          for (const scan of res.scans) {
+            if (scan && typeof scan === 'object' && 'scope' in scan) {
+              scan.symbolTier = scan.scope;
+              delete scan.scope;
+            }
+          }
+        }
         return { _skipSizeGuard: true, data: res };
       }
 
@@ -114,6 +124,14 @@ export function register(server: McpServer, client: ProxyClient): void {
       }) as any;
 
       if (!res?.history?.length) return null;
+
+      // Rename top-level `scope` (symbol classification tier — bellwether/sector/etc.) to
+      // `symbolTier` so it doesn't collide with the MCP input parameter named `scope`
+      // (which selects 'market' | 'symbol' | 'intraday' view, a different axis entirely).
+      if ('scope' in res) {
+        res.symbolTier = res.scope;
+        delete res.scope;
+      }
 
       if (full) {
         for (const entry of res.history) {
@@ -139,7 +157,7 @@ export function register(server: McpServer, client: ProxyClient): void {
         const latest = res.history[res.history.length - 1];
         return {
           symbol: res.symbol,
-          scope: res.scope,
+          symbolTier: res.symbolTier,
           ...latest,
         };
       }
