@@ -44,7 +44,7 @@ describe('shapeCompanyProfileResponse', () => {
     expect(shaped.isEtf).toBe(false);
     expect(shaped.isActivelyTrading).toBe(true);
     expect(shaped.description.endsWith('...')).toBe(true);
-    expect(String(shaped._description_note)).toContain('trimmed to 500 characters');
+    expect(shaped._description_truncated).toBe(true);
   });
 
   it('handles sparse or error payloads safely', () => {

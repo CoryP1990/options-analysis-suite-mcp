@@ -86,7 +86,7 @@ export function shapeCompanyProfileResponse(
     isActivelyTrading: typeof payload.is_actively_trading === 'boolean' ? payload.is_actively_trading : null,
     description,
     updatedAt: payload.updated_at ?? null,
-    ...(trimmed ? { _description_note: `Company description trimmed to ${descriptionCap} characters. Use full=true for the raw profile row.` } : {}),
+    ...(trimmed ? { _description_truncated: true } : {}),
     ...(payload.error ? { error: payload.error } : {}),
   };
 }
