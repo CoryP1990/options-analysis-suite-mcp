@@ -43,6 +43,14 @@ CREATE TABLE IF NOT EXISTS user_portfolio_snapshots (
 CREATE INDEX IF NOT EXISTS idx_uport_user ON user_portfolio_snapshots(user_id, timestamp DESC);
 
 -- Risk snapshots
+-- data JSONB shape:
+--   var95 / var99 / cvar95 / maxDrawdown / volatility: PERCENT units (e.g.,
+--     2.5 = 2.5%); volatility annualized; var/cvar/maxDrawdown are POSITIVE
+--     loss magnitudes (var95=2.5 means a 2.5% loss).
+--   sharpeRatio / beta / correlation: dimensionless.
+--   timestamp: epoch ms (matches the timestamp column).
+-- See apps/web/src/services/db.ts RiskSnapshotRecord for the canonical
+-- TypeScript-side description.
 CREATE TABLE IF NOT EXISTS user_risk_snapshots (
   id BIGSERIAL PRIMARY KEY,
   user_id INTEGER NOT NULL,
