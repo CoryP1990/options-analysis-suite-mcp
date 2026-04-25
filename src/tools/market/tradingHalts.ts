@@ -9,7 +9,7 @@ export function register(server: McpServer, client: ProxyClient): void {
     'get_trading_halts',
     {
       title: 'Trading Halts',
-      description: 'Get current and recent trading halts. Default view condenses duplicate feed rows, prioritizes the latest active halt state, and highlights material recent news/regulatory events. full=true returns the raw halt tape.',
+      description: 'Get current and recent trading halts. Default view condenses duplicate feed rows, prioritizes the latest active halt state, and highlights material recent news/regulatory events.',
       inputSchema: {
         symbol: z.string().optional().describe('Ticker symbol (optional — omit for all current halts)'),
         full: z.boolean().optional().describe('Return the raw halt feed instead of the compact active/recent summary. Default false.'),

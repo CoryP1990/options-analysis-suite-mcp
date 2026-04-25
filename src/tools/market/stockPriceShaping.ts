@@ -100,8 +100,8 @@ export function summarizeStockPrices(payload: unknown, requestedDays?: number): 
           }
         : null,
     },
-    _data_note: requestedDays != null && rows.length >= requestedDays
-      ? `Showing ${rows.length} most recent trading sessions requested.`
+    _data_meta: requestedDays != null && rows.length >= requestedDays
+      ? { showing: rows.length, requested_days: requestedDays }
       : undefined,
   };
 }

@@ -12,7 +12,7 @@ export function register(server: McpServer, client: ProxyClient): void {
     'get_options_analytics_history',
     {
       title: 'Options Analytics History',
-      description: 'Get daily end-of-day options analytics snapshots for a symbol — historical trend data going back years. Covers ATM IV, HV, IV rank/percentile, VWIV, skew, GEX/DEX/VEX, net vanna/charm/vomma, put/call ratio, max pain, expected move, term structure, dividend yield, and risk-free rate. Best for trend analysis over time. For current authoritative Greek exposures and dealer-positioning levels like call wall, put wall, and gamma flip, use get_regime with scope="symbol" instead. Up to 5000 days. Large windows return a compact recent/trend summary by default; use from/to or full=true for raw history.',
+      description: 'Get daily end-of-day options analytics snapshots for a symbol — historical trend data going back years. Covers ATM IV, HV, IV rank/percentile, VWIV, skew, GEX/DEX/VEX, net vanna/charm/vomma, put/call ratio, max pain, expected move, term structure, dividend yield, and risk-free rate. Best for trend analysis over time. For current authoritative Greek exposures and dealer-positioning levels like call wall, put wall, and gamma flip, use get_regime with scope="symbol" instead. Up to 5000 days. Large windows return a compact recent/trend summary by default.',
       inputSchema: {
         symbol: z.string().describe('Ticker symbol (e.g., AAPL, SPY)'),
         days: z.number().int().min(1).max(5000).default(30).describe('Days of history (default 30). Ignored if from/to are provided.'),
@@ -68,8 +68,9 @@ export function register(server: McpServer, client: ProxyClient): void {
         const cap = 30;
         for (const key of Object.keys(res ?? {})) {
           if (Array.isArray(res[key]) && res[key].length > cap) {
-            res[`_${key}_note`] = `Trimmed from ${res[key].length} to last ${cap} entries. Use from/to for specific ranges or full=true for all data.`;
+            const original = res[key].length;
             res[key] = res[key].slice(-cap);
+            res[`_${key}_meta`] = { trimmed: true, original_length: original, returned: cap };
           }
         }
       }

@@ -79,7 +79,7 @@ describe('get_snapshot — portfolio/risk fetchLimit behavior', () => {
 });
 
 describe('get_snapshot — GEX details dual handling', () => {
-  test('array-form details: collapsed to { _note: "N breakdowns omitted" }', async () => {
+  test('array-form details: collapsed to { _omitted: { expiration_breakdowns: N } }', async () => {
     const stub = {
       data: [
         {
@@ -92,10 +92,10 @@ describe('get_snapshot — GEX details dual handling', () => {
     const { handler } = createHarness(stub);
     const result = await handler({ type: 'gex', symbol: 'SPY' });
     const parsed = JSON.parse(result.content[0].text);
-    expect(parsed.data[0].details._note).toContain('3 expiration breakdowns omitted');
+    expect(parsed.data[0].details._omitted).toEqual({ expiration_breakdowns: 3 });
   });
 
-  test('object-form details: scalars kept, array keys moved to _note', async () => {
+  test('object-form details: scalars kept, array keys moved to _omitted_keys', async () => {
     const stub = {
       data: [
         {
@@ -117,7 +117,7 @@ describe('get_snapshot — GEX details dual handling', () => {
     expect(parsed.data[0].details.spotPrice).toBe(500);
     expect(parsed.data[0].details.callWallLevels).toBeUndefined();
     expect(parsed.data[0].details.putWallLevels).toBeUndefined();
-    expect(parsed.data[0].details._note).toContain('callWallLevels, putWallLevels omitted');
+    expect(parsed.data[0].details._omitted_keys).toEqual(['callWallLevels', 'putWallLevels']);
   });
 });
 

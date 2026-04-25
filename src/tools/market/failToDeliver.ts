@@ -9,7 +9,7 @@ export function register(server: McpServer, client: ProxyClient): void {
     'get_fail_to_deliver',
     {
       title: 'Fail-to-Deliver',
-      description: 'Get SEC Failure-to-Deliver (FTD) data for a symbol. Default response returns a compact summary with recent history, notable spikes, and threshold overlap; use full=true for the raw history. Default window is 180 days because SEC FTD publication lags by about 21 days.',
+      description: 'Get SEC Failure-to-Deliver (FTD) data for a symbol. Default response returns a compact summary with recent history, notable spikes, and threshold overlap. Default window is 180 days because SEC FTD publication lags by about 21 days.',
       inputSchema: {
         symbol: z.string().describe('Ticker symbol'),
         days: z.number().int().min(1).max(1095).default(180).describe('Number of calendar days to return. Default 180 because FTD publication lags by about 21 days.'),

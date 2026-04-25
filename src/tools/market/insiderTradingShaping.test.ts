@@ -82,7 +82,8 @@ describe('shapeInsiderTradingResponse', () => {
     }) as {
       insider_trades: Array<Record<string, unknown>>;
       summary: Record<string, unknown>;
-      _insider_trades_note?: string;
+      _insider_trades_meta?: Record<string, unknown>;
+      _insider_trades_status?: string;
     };
 
     expect(response.insider_trades).toEqual([
@@ -111,7 +112,7 @@ describe('shapeInsiderTradingResponse', () => {
       exercise_or_conversion: 1,
       open_market_sell: 1,
     });
-    expect(response._insider_trades_note).toContain('open-market insider trade events');
+    expect(response._insider_trades_meta?.kind).toBe('open_market_events');
   });
 
   test('falls back to administrative activity when no open-market buys or sells exist', () => {
@@ -146,7 +147,8 @@ describe('shapeInsiderTradingResponse', () => {
     }) as {
       insider_trades: Array<Record<string, unknown>>;
       summary: Record<string, unknown>;
-      _insider_trades_note?: string;
+      _insider_trades_meta?: Record<string, unknown>;
+      _insider_trades_status?: string;
     };
 
     expect(response.insider_trades).toHaveLength(1);
@@ -155,7 +157,7 @@ describe('shapeInsiderTradingResponse', () => {
       grant_or_award: 1,
       initial_holding: 1,
     });
-    expect(response._insider_trades_note).toContain('No recent open-market insider buys or sells');
+    expect(response._insider_trades_meta?.no_recent_open_market_buys_or_sells).toBe(true);
   });
 
   test('returns a grouped event-level summary for repeated sale rows', () => {
@@ -220,11 +222,12 @@ describe('shapeInsiderTradingResponse', () => {
     }) as {
       insider_trades: Array<Record<string, unknown>>;
       summary: Record<string, unknown>;
-      _insider_trades_note?: string;
+      _insider_trades_meta?: Record<string, unknown>;
+      _insider_trades_status?: string;
     };
 
     expect(response.insider_trades).toEqual([]);
     expect(response.summary.groupedEvents).toBe(0);
-    expect(response._insider_trades_note).toContain('No meaningful insider trading activity');
+    expect(response._insider_trades_status).toBe('no_corporate_insider_filings_likely_etf');
   });
 });

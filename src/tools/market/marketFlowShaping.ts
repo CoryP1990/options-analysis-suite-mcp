@@ -159,8 +159,8 @@ export function summarizeShortVolume(payload: unknown, historyLimit = 10): unkno
     recentHistory,
     trailingAverages: typed.averages ?? null,
     yearStats: typed.yearStats ?? null,
-    _recent_history_note: history.length > historyLimit
-      ? `Showing ${historyLimit} most recent sessions out of ${history.length}. Use full=true for the raw daily history.`
+    _recent_history_meta: history.length > historyLimit
+      ? { showing: historyLimit, total: history.length, truncated: true }
       : undefined,
   };
 }
@@ -259,8 +259,8 @@ export function summarizeShortInterest(payload: unknown, historyLimit = 8, compa
       minDate: typeof stats.minDate === 'string' ? stats.minDate : null,
     },
     recentHistory,
-    _recent_history_note: history.length > historyLimit
-      ? `Showing ${historyLimit} most recent settlement periods out of ${history.length}. Use full=true for the full biweekly history.`
+    _recent_history_meta: history.length > historyLimit
+      ? { showing: historyLimit, total: history.length, truncated: true }
       : undefined,
   };
 }

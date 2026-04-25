@@ -50,7 +50,7 @@ describe('summarizeYieldCurve', () => {
     expect(summarized.trendSummary.comparedToDate).toBe('2026-02-28');
     expect(summarized.trendSummary.tenYearChange).toBe(0.1);
     expect(summarized.historicalSample).toHaveLength(1);
-    expect(String(summarized._historical_note)).toContain('1 evenly spaced historical curve samples out of 2');
+    expect(summarized._historical_meta).toEqual({ sampled: 1, total: 2, evenly_spaced: true });
   });
 
   it('returns a stable fallback summary when only a 10Y benchmark is available', () => {

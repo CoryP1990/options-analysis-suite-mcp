@@ -17,7 +17,7 @@ describe('summarizeStockPrices', () => {
     expect(summarized.summary.closeReturnPct).toBeCloseTo(((252.89 - 251.64) / 251.64) * 100, 2);
     expect(summarized.summary.highestClose).toEqual({ date: '2026-03-26', close: 252.89 });
     expect(summarized.summary.lowestClose).toEqual({ date: '2026-03-24', close: 251.64 });
-    expect(String(summarized._data_note)).toContain('3 most recent trading sessions requested');
+    expect(summarized._data_meta).toEqual({ showing: 3, requested_days: 3 });
   });
 
   it('returns a stable empty structure for empty payloads', () => {

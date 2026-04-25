@@ -25,7 +25,7 @@ function truncateLargeArrays(data: unknown, maxItems = 50, depth = 0): unknown {
   if (data === null || typeof data !== 'object' || depth > 2) return data;
   // Handle root-level arrays
   if (Array.isArray(data) && data.length > maxItems) {
-    return [...data.slice(0, maxItems), { _note: `Truncated from ${data.length} to first ${maxItems} items.` }];
+    return [...data.slice(0, maxItems), { _truncated: true, original_length: data.length, returned: maxItems }];
   }
   if (Array.isArray(data)) return data;
   const obj = data as Record<string, unknown>;
@@ -33,7 +33,7 @@ function truncateLargeArrays(data: unknown, maxItems = 50, depth = 0): unknown {
   for (const [key, value] of Object.entries(obj)) {
     if (Array.isArray(value) && value.length > maxItems) {
       result[key] = value.slice(0, maxItems);
-      result[`_${key}_note`] = `Truncated from ${value.length} to first ${maxItems} items. Request specific date range or fields for full data.`;
+      result[`_${key}_meta`] = { truncated: true, original_length: value.length, returned: maxItems };
     } else if (typeof value === 'object' && value !== null && !Array.isArray(value) && depth < 2) {
       result[key] = truncateLargeArrays(value, maxItems, depth + 1);
     } else {
@@ -47,7 +47,7 @@ function aggressivelyTrimLargeArrays(data: unknown, maxItems = 5): unknown {
   if (Array.isArray(data) && data.length > maxItems) {
     return [
       ...data.slice(0, maxItems),
-      { _note: `Aggressively trimmed to first ${maxItems} items due to size (newest first for sync-backed tools that sort timestamp DESC). Request specific filters for full data.` },
+      { _truncated: true, _aggressive: true, original_length: data.length, returned: maxItems },
     ];
   }
   if (data === null || typeof data !== 'object') return data;
@@ -55,7 +55,7 @@ function aggressivelyTrimLargeArrays(data: unknown, maxItems = 5): unknown {
   for (const [key, value] of Object.entries(obj)) {
     if (Array.isArray(value) && value.length > maxItems) {
       obj[key] = value.slice(0, maxItems);
-      obj[`_${key}_note`] = `Aggressively trimmed to first ${maxItems} items due to size (newest first for sync-backed tools that sort timestamp DESC). Request specific filters for full data.`;
+      obj[`_${key}_meta`] = { truncated: true, aggressive: true, original_length: value.length, returned: maxItems };
     }
   }
   return obj;
@@ -75,8 +75,8 @@ export function applyResponseSizeGuard(data: unknown, maxResponseBytes = MAX_RES
 
   if (json.length > maxResponseBytes) {
     json = JSON.stringify({
-      _error: 'Response too large. Use specific filters (symbol, date range, limit) to narrow results.',
-      _size: `${Math.round(json.length / 1024)}KB`,
+      _error: 'Response too large for MCP response budget.',
+      _meta: { too_large: true, size_kb: Math.round(json.length / 1024) },
     });
   }
 

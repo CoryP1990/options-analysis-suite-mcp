@@ -32,7 +32,7 @@ describe('summarizeFailToDeliver', () => {
     expect(summarized.notableSpikes[0].date).toBe('2026-02-18');
     expect(summarized.thresholdEvents).toHaveLength(2);
     expect(summarized.trendSample).toHaveLength(2);
-    expect(String(summarized._recent_history_note)).toContain('3 most recent settlement dates out of 6');
+    expect(summarized._recent_history_meta).toEqual({ showing: 3, total: 6, truncated: true });
   });
 
   it('returns a stable empty summary when no FTD rows exist', () => {

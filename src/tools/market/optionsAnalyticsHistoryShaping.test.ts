@@ -97,7 +97,12 @@ describe('summarizeOptionsAnalyticsHistory', () => {
       '2026-01-03',
       '2026-01-01',
     ]);
-    expect(summary._data_note).toContain('Showing 2 most recent entries plus 2 evenly spaced trend samples across 5 snapshots');
+    expect(summary._data_meta).toEqual({
+      summarized: true,
+      recent: 2,
+      trend_samples: 2,
+      total_snapshots: 5,
+    });
   });
 });
 

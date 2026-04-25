@@ -140,7 +140,7 @@ describe('summarizeTradingHalts', () => {
     expect(summarized.recentMaterialHalts[0]?.symbol).toBe('ITRM');
     expect(summarized.recentVolatilityHalts).toHaveLength(2);
     expect(summarized.recentVolatilityHalts.map((halt: Record<string, unknown>) => halt.symbol)).toEqual(['ARTL', 'VSA']);
-    expect(String(summarized._halts_note)).toContain('Removed 1 duplicate halt rows');
+    expect(summarized._halts_meta?.duplicateRowsRemoved).toBe(1);
   });
 
   it('shows only the latest unresolved halt per symbol in the active section', () => {

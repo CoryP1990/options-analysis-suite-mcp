@@ -418,6 +418,10 @@ export function summarizeOptionsChain(payload: unknown): unknown {
       calls: pickNearMoneyContracts(rawContracts, spotPrice, 'call', compareByVolume),
       puts: pickNearMoneyContracts(rawContracts, spotPrice, 'put', compareByVolume),
     },
-    _contracts_note: `Default view summarizes ${typed.contractCount ?? rawContracts.length} contracts across ${expirationGroups.length} expirations. Use full=true for the raw chain.`,
+    _contracts_meta: {
+      summarized: true,
+      total_contracts: typed.contractCount ?? rawContracts.length,
+      expirations: expirationGroups.length,
+    },
   };
 }

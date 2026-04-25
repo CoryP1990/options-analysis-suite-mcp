@@ -1449,27 +1449,17 @@ export function shapeNewsResponse(symbol: string, payload: unknown, companyProfi
   if (payload && typeof payload === 'object') {
     const response = payload as NewsResponse;
     response.results = trimmed;
-    const notes: string[] = [];
+    const meta: Record<string, unknown> = {};
     if (items.length > trimmed.length) {
-      notes.push(
-        filtered.length > 0
-          ? `Showing ${trimmed.length} relevance-ranked articles out of ${items.length} recent items.`
-          : `Showing top ${trimmed.length} recent articles out of ${items.length} items.`,
-      );
+      meta.showing = trimmed.length;
+      meta.total = items.length;
+      meta.relevanceRanked = filtered.length > 0;
     }
-    if (nearDuplicateCount > 0) {
-      notes.push(`Collapsed ${nearDuplicateCount} near-duplicate articles covering the same story into the strongest source for each event.`);
-    }
-    if (filingStyleOmitted > 0 && filteredNonFiling.length > 0) {
-      notes.push(`Omitted ${filingStyleOmitted} filing-style ownership updates from the default news feed; use get_sec_filings or full=true for raw filing-driven items.`);
-    }
-    if (stalePressReleaseOmitted > 0) {
-      notes.push(`Omitted ${stalePressReleaseOmitted} stale company press releases from the default news feed because fresher direct news was available.`);
-    }
-    if (lowSignalOmitted > 0) {
-      notes.push(`Omitted ${lowSignalOmitted} generic market-commentary items from the default news feed because stronger company-specific news was available.`);
-    }
-    if (notes.length > 0) response._results_note = notes.join(' ');
+    if (nearDuplicateCount > 0) meta.nearDuplicatesCollapsed = nearDuplicateCount;
+    if (filingStyleOmitted > 0 && filteredNonFiling.length > 0) meta.filingStyleOmitted = filingStyleOmitted;
+    if (stalePressReleaseOmitted > 0) meta.stalePressReleaseOmitted = stalePressReleaseOmitted;
+    if (lowSignalOmitted > 0) meta.lowSignalOmitted = lowSignalOmitted;
+    if (Object.keys(meta).length > 0) response._results_meta = meta;
     return response;
   }
 

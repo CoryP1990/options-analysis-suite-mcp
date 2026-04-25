@@ -23,11 +23,11 @@ describe('summarizeNestedValue', () => {
   test('replaces large or object arrays with compact notes', () => {
     expect(summarizeNestedValue([1, 2, 3, 4, 5, 6])).toEqual({
       _count: 6,
-      _note: 'Omitted 6 items. Use full=true for complete data.',
+      _omitted: true,
     });
     expect(summarizeNestedValue([{ strike: 100 }, { strike: 105 }])).toEqual({
       _count: 2,
-      _note: 'Omitted 2 items. Use full=true for complete data.',
+      _omitted: true,
     });
   });
 
@@ -104,7 +104,7 @@ describe('shapeAnalysisResultRecord', () => {
       KappaDer: 0.2,
       terminalPrices: {
         _count: 100,
-        _note: 'Omitted 100 items. Use full=true for complete data.',
+        _omitted: true,
       },
     });
     expect(record.data.facts as any).toBe('[see top-level facts]');
@@ -128,7 +128,7 @@ describe('shapeAnalysisResultRecord', () => {
       },
       pdeFinalGrid: {
         _count: 2,
-        _note: 'Omitted 2 items. Use full=true for complete data.',
+        _omitted: true,
       },
     });
   });
@@ -365,7 +365,11 @@ describe('shapeRiskDetails', () => {
         buyingPower: 70000,
         usagePercent: 32,
       },
-      _note: 'Correlation matrix omitted. Monte Carlo VaR details omitted. Position contributions omitted (2 items). Request full data if needed.',
+      _omitted_meta: {
+        correlation_matrix: true,
+        mc_var_details: true,
+        position_contributions: 2,
+      },
     });
   });
 
@@ -400,7 +404,7 @@ describe('shapePortfolioDetails', () => {
         dollarDelta: 15000.123456,
         dollarGamma: 42.123456,
       },
-      _note: 'Per-position arrays omitted: positionGreeks(1), fullAllocation(1). Request full data for breakdown.',
+      _omitted_arrays: { positionGreeks: 1, fullAllocation: 1 },
     });
   });
 });
@@ -905,8 +909,8 @@ describe('compactPortfolioHistoryResponse', () => {
 
     expect(res.data[0].data.topHoldings).toHaveLength(5);
     expect(res.data[1].data.topHoldings).toHaveLength(3);
-    expect((res.data[0].data as any)._topHoldingsNote).toContain('5 of 8');
-    expect((res.data[1].data as any)._topHoldingsNote).toContain('3 of 7');
+    expect((res.data[0].data as any)._topHoldingsMeta).toEqual({ showing: 5, total: 8 });
+    expect((res.data[1].data as any)._topHoldingsMeta).toEqual({ showing: 3, total: 7 });
     expect(res.data[0].data.topHoldings[0].weight).toBe(0.1235);
   });
 });

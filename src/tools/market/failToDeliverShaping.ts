@@ -157,11 +157,11 @@ export function summarizeFailToDeliver(
     notableSpikes,
     thresholdEvents,
     trendSample,
-    _recent_history_note: `Showing ${recentHistory.length} most recent settlement dates out of ${rows.length}. Use full=true for the raw FTD history.`,
-    _spikes_note: `Showing ${notableSpikes.length} highest-quantity FTD dates across the requested window.`,
+    _recent_history_meta: { showing: recentHistory.length, total: rows.length, truncated: rows.length > recentHistory.length },
+    _spikes_meta: { showing: notableSpikes.length, scope: 'requested_window', kind: 'highest_quantity' },
     ...(trendSample.length > 0
       ? {
-          _trend_sample_note: `Showing ${trendSample.length} evenly spaced trend samples across ${rows.length} FTD rows.`,
+          _trend_sample_meta: { samples: trendSample.length, total_rows: rows.length, evenly_spaced: true },
         }
       : {}),
     ...(thresholdEvents.length === 0

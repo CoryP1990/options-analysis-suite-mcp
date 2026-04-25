@@ -59,7 +59,7 @@ describe('summarizeEconomicCalendar', () => {
     const result = summarizeEconomicCalendar(payload, 12, '2026-03-27T00:00:00+00:00') as {
       events: Array<Record<string, unknown>>;
       summary: Record<string, number>;
-      _note?: string;
+      _events_meta?: Record<string, unknown>;
     };
 
     expect(result.events.map((event) => event.event)).toEqual([
@@ -74,9 +74,11 @@ describe('summarizeEconomicCalendar', () => {
       highImpactEvents: 4,
       mediumImpactEvents: 1,
     });
-    expect(result._note).toContain('higher-signal macro catalysts');
-    expect(result._note).toContain('Removed 1 duplicate calendar rows');
-    expect(result._note).toContain('Omitted 2 lower-signal items');
+    expect(result._events_meta).toMatchObject({
+      focusedHigherSignal: true,
+      duplicatesRemoved: 1,
+      lowerSignalOmitted: 2,
+    });
   });
 
   test('falls back to the next upcoming events when no strong macro catalyst cluster exists', () => {
@@ -107,7 +109,7 @@ describe('summarizeEconomicCalendar', () => {
     const result = summarizeEconomicCalendar(payload, 12, '2026-03-27T00:00:00+00:00') as {
       events: Array<Record<string, unknown>>;
       summary: Record<string, number>;
-      _note?: string;
+      _events_meta?: Record<string, unknown>;
     };
 
     expect(result.events.map((event) => event.event)).toEqual([
@@ -121,7 +123,7 @@ describe('summarizeEconomicCalendar', () => {
       highImpactEvents: 0,
       mediumImpactEvents: 0,
     });
-    expect(result._note).toBeUndefined();
+    expect(result._events_meta).toBeUndefined();
   });
 
   test('preserves estimate and actual fields on selected events', () => {

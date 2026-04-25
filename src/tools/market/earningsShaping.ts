@@ -108,8 +108,8 @@ export function summarizeEarnings(payload: unknown, historyLimit = 8, now: Date 
       } : null,
       averageEpsSurprisePct: avgEpsSurprisePct,
     },
-    _earnings_history_note: meaningfulRows.length > historyLimit
-      ? `Showing ${historyLimit} most recent meaningful quarters out of ${meaningfulRows.length}.`
+    _earnings_history_meta: meaningfulRows.length > historyLimit
+      ? { showing: historyLimit, total: meaningfulRows.length, truncated: true }
       : undefined,
   };
 }

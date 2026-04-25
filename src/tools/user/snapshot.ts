@@ -19,11 +19,11 @@ import {
  * tool. Each type keeps its own shaping, dedupe, and response shape.
  */
 
-const SNAPSHOT_DESCRIPTION = `Get the user's synced snapshot history by type. Default \`limit\` is 3 rows; increase or pass \`full=true\` for the raw history. Each type serves a different question:
+const SNAPSHOT_DESCRIPTION = `Get the user's synced snapshot history by type. Each type serves a different question:
 
 • type="gex" — per-symbol Gamma Exposure snapshots. REQUIRED: \`symbol\`. Returns the 3 most recent snapshots (no dedupe — rows may be near-duplicates if recorded back-to-back). Includes per-expiration breakdown, call/put walls, gamma flip point, unusual activity, and expected move data.
-• type="portfolio" — account-wide portfolio snapshots with market-scaled raw Greeks (no \$): first-order delta, gamma, theta/day, vega/1% IV, rho/1% rate; second-order vanna/1% IV, charm/day (delta decay), vomma/1% IV², veta/day (vega decay, sign-flipped for market convention). Default view collapses consecutive identical snapshots to surface the latest distinct states; per-position breakdowns are summarized unless full=true. For \$-impact views of the same Greeks, use type="risk".
-• type="risk" — account-wide risk-analysis snapshots: Value-at-Risk (95%/99%), Conditional VaR, portfolio beta, Sharpe ratio, maximum drawdown, volatility, stress test results, and aggregate Greek \$-impact exposure. \$-Greeks include first-order dollarDelta, dollarGamma (per 1% move), dollarTheta/day, dollarVega (per 1% IV), dollarRho (per 1% rate) and second-order dollarVanna (per 1% IV move), dollarCharm (daily \$Δ decay), dollarVomma (per 1% IV), dollarVeta (daily vega decay). Default view collapses consecutive identical snapshots; correlation matrices omitted unless full=true. For raw-unit Greeks, use type="portfolio".`;
+• type="portfolio" — account-wide portfolio snapshots with market-scaled raw Greeks (no \$): first-order delta, gamma, theta/day, vega/1% IV, rho/1% rate; second-order vanna/1% IV, charm/day (delta decay), vomma/1% IV², veta/day (vega decay, sign-flipped for market convention). Default view collapses consecutive identical snapshots to surface the latest distinct states. For \$-impact views of the same Greeks, use type="risk".
+• type="risk" — account-wide risk-analysis snapshots: Value-at-Risk (95%/99%), Conditional VaR, portfolio beta, Sharpe ratio, maximum drawdown, volatility, stress test results, and aggregate Greek \$-impact exposure. \$-Greeks include first-order dollarDelta, dollarGamma (per 1% move), dollarTheta/day, dollarVega (per 1% IV), dollarRho (per 1% rate) and second-order dollarVanna (per 1% IV move), dollarCharm (daily \$Δ decay), dollarVomma (per 1% IV), dollarVeta (daily vega decay). Default view collapses consecutive identical snapshots. For raw-unit Greeks, use type="portfolio".`;
 
 export function register(server: McpServer, client: ProxyClient): void {
   server.registerTool(
@@ -52,14 +52,14 @@ export function register(server: McpServer, client: ProxyClient): void {
             if (record.details && typeof record.details === 'object') {
               const d = record.details;
               if (Array.isArray(d)) {
-                record.details = { _note: `${d.length} expiration breakdowns omitted — request full data if needed.` };
+                record.details = { _omitted: { expiration_breakdowns: d.length } };
               } else {
                 const summary: Record<string, unknown> = {};
-                const omitted: string[] = [];
+                const omittedKeys: string[] = [];
                 for (const [k, v] of Object.entries(d)) {
-                  if (Array.isArray(v)) { omitted.push(k); } else { summary[k] = v; }
+                  if (Array.isArray(v)) { omittedKeys.push(k); } else { summary[k] = v; }
                 }
-                if (omitted.length) summary._note = `${omitted.join(', ')} omitted — request full data if needed.`;
+                if (omittedKeys.length) summary._omitted_keys = omittedKeys;
                 record.details = summary;
               }
             }
@@ -88,7 +88,7 @@ export function register(server: McpServer, client: ProxyClient): void {
           res.data = deduped.records;
           res.count = res.data.length;
           if (deduped.omittedCount > 0) {
-            res._dedupe_note = `Collapsed ${deduped.omittedCount} repeated identical snapshots from the default view so the latest distinct states fit. Use full=true for the raw history.`;
+            res._dedupe_meta = { collapsed_repeated: deduped.omittedCount };
           }
           compactPortfolioHistoryResponse(res);
         }
@@ -112,7 +112,7 @@ export function register(server: McpServer, client: ProxyClient): void {
         res.data = deduped.records;
         res.count = res.data.length;
         if (deduped.omittedCount > 0) {
-          res._dedupe_note = `Collapsed ${deduped.omittedCount} repeated identical snapshots from the default view so the latest distinct states fit. Use full=true for the raw history.`;
+          res._dedupe_meta = { collapsed_repeated: deduped.omittedCount };
         }
       }
       return res;

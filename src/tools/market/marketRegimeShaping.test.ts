@@ -52,7 +52,7 @@ describe('shapeMarketRegimeResponse', () => {
       turbulence: 0.7265,
     });
     expect(market.vector).toBeUndefined();
-    expect(market._feature_vector_note).toContain('include_symbols=true');
+    expect(market._feature_vector_meta).toEqual({ raw_internals_omitted: true });
   });
 
   test('passes through payloads without a market object unchanged', () => {
@@ -78,6 +78,6 @@ describe('shapeMarketRegimeResponse', () => {
 
     expect(market.vector).toBeUndefined();
     expect(market.feature_z_scores).toBeUndefined();
-    expect(market._feature_vector_note).toBeUndefined();
+    expect(market._feature_vector_meta).toBeUndefined();
   });
 });

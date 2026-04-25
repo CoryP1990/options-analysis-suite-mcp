@@ -9,7 +9,7 @@ export function register(server: McpServer, client: ProxyClient): void {
     'get_analyst_data',
     {
       title: 'Analyst Data',
-      description: 'Get Wall Street analyst ratings, price targets, and consensus estimates for a symbol. Default response keeps the nearest forward estimate periods, price-target summaries, rating snapshot, summarized rating-history streaks, and recent rating changes. Use full=true for the full analyst history.',
+      description: 'Get Wall Street analyst ratings, price targets, and consensus estimates for a symbol. Default response keeps the nearest forward estimate periods, price-target summaries, rating snapshot, summarized rating-history streaks, and recent rating changes.',
       inputSchema: {
         symbol: z.string().describe('Ticker symbol (e.g., AAPL, TSLA)'),
         full: z.boolean().optional().describe('Include the full raw analyst payload, including complete estimate and rating-history arrays. Default false returns a compact summary view.'),

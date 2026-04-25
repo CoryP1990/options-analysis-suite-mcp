@@ -40,7 +40,7 @@ describe('trimIvHistoryToRecent', () => {
       '2026-01-05',
       '2026-01-04',
     ]);
-    expect(trimmed._data_note).toContain('Showing 2 most recent entries');
+    expect(trimmed._data_meta).toEqual({ showing: 2, total: 4, truncated: true });
     expect(payload.data.map((point: any) => point.market_date)).toEqual([
       '2026-01-02',
       '2026-01-05',
@@ -110,7 +110,12 @@ describe('summarizeIvHistory', () => {
       '2026-01-03',
       '2026-01-01',
     ]);
-    expect(summary._data_note).toContain('Showing 2 most recent entries plus 2 evenly spaced trend samples across 5 trading days');
+    expect(summary._data_meta).toEqual({
+      summarized: true,
+      recent: 2,
+      trend_samples: 2,
+      total_trading_days: 5,
+    });
   });
 
   test('supports payloads that use a history array instead of data', () => {
@@ -126,7 +131,12 @@ describe('summarizeIvHistory', () => {
     const summary = summarizeIvHistory(payload, 1, 2) as any;
 
     expect(summary.history.map((point: any) => point.market_date)).toEqual(['2026-01-03']);
-    expect(summary._history_note).toContain('Showing 1 most recent entries');
+    expect(summary._history_meta).toEqual({
+      summarized: true,
+      recent: 1,
+      trend_samples: 1,
+      total_trading_days: 3,
+    });
   });
 });
 

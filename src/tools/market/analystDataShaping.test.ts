@@ -61,7 +61,7 @@ describe('summarizeAnalystData', () => {
         numAnalystsRevenue: 14,
       },
     ]);
-    expect(summary._estimates_note).toContain('Showing 2 nearest analyst estimate periods out of 3');
+    expect(summary._estimates_meta).toEqual({ showing: 2, total: 3, truncated: true });
     expect(summary.price_target_summary.publishers).toEqual(['StreetInsider', 'Barrons']);
     expect(summary.historical_rating).toEqual([
       {
@@ -91,7 +91,7 @@ describe('summarizeAnalystData', () => {
         observationCount: 1,
       },
     ]);
-    expect(summary._historical_rating_note).toContain('Collapsed 3 daily rating observations into 2 rating streaks');
+    expect(summary._historical_rating_meta).toEqual({ collapsed: true, raw_observations: 3, streaks: 2 });
     expect(summary.upgrades_downgrades).toEqual([
       {
         date: '2026-03-24',
@@ -101,7 +101,7 @@ describe('summarizeAnalystData', () => {
         gradingCompany: 'Firm A',
       },
     ]);
-    expect(summary._upgrades_downgrades_note).toContain('Showing 1 most recent rating changes out of 2');
+    expect(summary._upgrades_downgrades_meta).toEqual({ showing: 1, total: 2, truncated: true });
   });
 
   test('prefers nearest future estimate periods, then the most recent past periods', () => {

@@ -391,19 +391,23 @@ export function summarizeEconomicCalendar(
     mediumImpactEvents: ranked.filter((entry) => entry.impact === 'Medium').length,
   };
 
-  const notes: string[] = [];
+  const meta: Record<string, unknown> = {};
   if (threshold > 0) {
-    notes.push(`Focused the default view on ${selectedRanked.length} higher-signal macro catalysts out of ${deduped.length} unique upcoming events.`);
-    if (duplicateCount > 0) notes.push(`Removed ${duplicateCount} duplicate calendar rows.`);
-    if (omittedCount > 0) notes.push(`Omitted ${omittedCount} lower-signal items. Use full=true for the complete calendar.`);
+    meta.focusedHigherSignal = true;
+    meta.selected = selectedRanked.length;
+    meta.uniqueAvailable = deduped.length;
+    if (duplicateCount > 0) meta.duplicatesRemoved = duplicateCount;
+    if (omittedCount > 0) meta.lowerSignalOmitted = omittedCount;
   } else if (deduped.length > selectedRanked.length || duplicateCount > 0) {
-    notes.push(`Showing next ${selectedRanked.length} upcoming events out of ${deduped.length} unique items because no higher-signal macro catalyst cluster was available in the current window.`);
-    if (duplicateCount > 0) notes.push(`Removed ${duplicateCount} duplicate calendar rows.`);
+    meta.fallbackToUpcoming = true;
+    meta.showing = selectedRanked.length;
+    meta.uniqueAvailable = deduped.length;
+    if (duplicateCount > 0) meta.duplicatesRemoved = duplicateCount;
   }
 
   return {
     events: selectedRanked.map(({ event }) => trimEvent(event)),
     summary,
-    _note: notes.length > 0 ? notes.join(' ') : undefined,
+    _events_meta: Object.keys(meta).length > 0 ? meta : undefined,
   };
 }

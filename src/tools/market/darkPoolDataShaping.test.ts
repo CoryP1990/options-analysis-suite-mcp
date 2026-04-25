@@ -27,7 +27,10 @@ describe('summarizeDarkPoolVenue', () => {
     expect(summary.trendSample.length).toBeGreaterThan(0);
     expect(summary.summary.latestWeek).toBe('2026-01-20');
     expect(summary.summary.avgWeeklyShares).toBe(1095);
-    expect(summary._weeklyData_note).toContain('Showing 4 most recent weeks');
+    expect(summary._weeklyData_meta).toMatchObject({
+      summarized: true,
+      recent_weeks: 4,
+    });
   });
 
   test('preserves existing summary fields and handles short histories without a trim note', () => {
@@ -45,7 +48,7 @@ describe('summarizeDarkPoolVenue', () => {
     const summary = summarizeDarkPoolVenue(payload, 4, 4) as any;
 
     expect(summary.summary.volumeTrend).toBe('12.5');
-    expect(summary._weeklyData_note).toBeUndefined();
+    expect(summary._weeklyData_meta).toBeUndefined();
     expect(summary.trendSample).toEqual([]);
   });
 });

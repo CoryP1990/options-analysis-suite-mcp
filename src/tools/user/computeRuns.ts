@@ -9,7 +9,7 @@ export function register(server: McpServer, client: ProxyClient): void {
     'get_compute_runs',
     {
       title: 'AI Compute Suite Runs',
-      description: 'Get the user\'s AI Compute Suite run history — portfolio-wide batch analyses across multiple pricing models. Default response returns compact run summaries, model-dispersion highlights, exposure key levels, and representative position/model outputs. Use full=true for the raw synced run records.',
+      description: 'Get the user\'s AI Compute Suite run history — portfolio-wide batch analyses across multiple pricing models. Default response returns compact run summaries, model-dispersion highlights, exposure key levels, and representative position/model outputs.',
       inputSchema: {
         run_key: z.string().optional().describe('Exact run key for one specific compute run'),
         status: z.enum(['running', 'completed', 'cancelled', 'failed']).optional().describe('Filter by run status'),

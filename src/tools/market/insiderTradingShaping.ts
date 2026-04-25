@@ -395,19 +395,25 @@ export function shapeInsiderTradingResponse(payload: unknown, companyProfile?: u
   };
 
   if (signalTrades.length > 0) {
-    response._insider_trades_note = groupedTrades.length > defaultTrades.length
-      ? `Showing ${defaultTrades.length} recent open-market insider trade events. Administrative filings are summarized in summary.activityBreakdown.`
-      : `Showing ${defaultTrades.length} recent open-market insider trade events.`;
+    response._insider_trades_meta = {
+      kind: 'open_market_events',
+      showing: defaultTrades.length,
+      total_grouped: groupedTrades.length,
+      administrative_summarized_in: 'summary.activityBreakdown',
+    };
   } else if (nonInitialTrades.length > 0) {
-    response._insider_trades_note = groupedTrades.length > defaultTrades.length
-      ? `No recent open-market insider buys or sells. Showing ${defaultTrades.length} recent administrative insider events instead.`
-      : 'No recent open-market insider buys or sells. Showing recent administrative insider activity instead.';
+    response._insider_trades_meta = {
+      kind: 'administrative_events',
+      showing: defaultTrades.length,
+      total_grouped: groupedTrades.length,
+      no_recent_open_market_buys_or_sells: true,
+    };
   } else if (groupedTrades.length > 0) {
-    response._insider_trades_note = 'No recent Form 4 transaction events beyond initial holdings.';
+    response._insider_trades_status = 'no_form4_transactions_beyond_initial_holdings';
   } else {
-    response._insider_trades_note = isLikelyEtfProfile(companyProfile)
-      ? 'No meaningful insider trading activity was available for this symbol. It may be an ETF, fund, index, or another instrument without corporate insider filings.'
-      : 'No insider trading activity was available for this symbol in the current feed.';
+    response._insider_trades_status = isLikelyEtfProfile(companyProfile)
+      ? 'no_corporate_insider_filings_likely_etf'
+      : 'no_recent_insider_activity';
   }
 
   return response;

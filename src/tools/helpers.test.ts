@@ -15,6 +15,7 @@ describe('applyResponseSizeGuard', () => {
 
     expect(parsed.data).toHaveLength(60);
     expect(parsed._data_note).toBeUndefined();
+    expect(parsed._data_meta).toBeUndefined();
   });
 
   test('truncates oversized nested arrays only after the raw response exceeds the byte budget', () => {
@@ -28,7 +29,12 @@ describe('applyResponseSizeGuard', () => {
     const parsed = JSON.parse(applyResponseSizeGuard(payload, 50 * 1024));
 
     expect(parsed.data).toHaveLength(5);
-    expect(parsed._data_note).toContain('Aggressively trimmed to first 5 items');
+    // After both passes, the aggressive meta records the post-first-pass length (51)
+    expect(parsed._data_meta).toMatchObject({
+      truncated: true,
+      aggressive: true,
+      returned: 5,
+    });
   });
 
   test('aggressively trims oversized root arrays before falling back to an error payload', () => {
@@ -41,7 +47,11 @@ describe('applyResponseSizeGuard', () => {
 
     expect(Array.isArray(parsed)).toBeTrue();
     expect(parsed.slice(0, 5)).toHaveLength(5);
-    expect(parsed[5]._note).toContain('Aggressively trimmed to first 5 items');
+    expect(parsed[5]).toMatchObject({
+      _truncated: true,
+      _aggressive: true,
+      returned: 5,
+    });
   });
 
   test('keeps the FIRST N items when aggressively trimming a nested data array', () => {
@@ -71,8 +81,9 @@ describe('applyResponseSizeGuard', () => {
     const parsed = JSON.parse(applyResponseSizeGuard(payload, 50 * 1024));
 
     expect(Array.isArray(parsed)).toBeTrue();
-    // First 5 elements are the records (ids 0-4), last element is the _note
+    // First 5 elements are the records (ids 0-4), last element is the truncation metadata
     expect(parsed.slice(0, 5).map((row: { id: number }) => row.id)).toEqual([0, 1, 2, 3, 4]);
-    expect(parsed[5]._note).toBeDefined();
+    expect(parsed[5]._truncated).toBe(true);
+    expect(parsed[5]._aggressive).toBe(true);
   });
 });

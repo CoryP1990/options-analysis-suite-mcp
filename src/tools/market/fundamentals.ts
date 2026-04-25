@@ -9,7 +9,7 @@ export function register(server: McpServer, client: ProxyClient): void {
     'get_fundamentals',
     {
       title: 'Fundamentals',
-      description: 'Get company fundamentals: market cap, P/E ratio, EPS, revenue, profit margins, dividend yield, beta, sector, and industry. Useful for assessing whether an options strategy aligns with the fundamental picture. Default response returns compact company metadata, curated TTM ratios/key metrics, and one summarized recent statement entry per financial statement. Use full=true to include the raw financial statements payload.',
+      description: 'Get company fundamentals: market cap, P/E ratio, EPS, revenue, profit margins, dividend yield, beta, sector, and industry. Useful for assessing whether an options strategy aligns with the fundamental picture. Default response returns compact company metadata, curated TTM ratios/key metrics, and one summarized recent statement entry per financial statement.',
       inputSchema: {
         symbol: z.string().describe('Ticker symbol'),
         full: z.boolean().optional().describe('Include the full raw financial statements payload (annual + quarterly). Default false returns a compact fundamentals summary.'),

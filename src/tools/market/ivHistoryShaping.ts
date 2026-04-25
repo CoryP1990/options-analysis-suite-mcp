@@ -177,7 +177,12 @@ export function summarizeIvHistory(
     },
     [dataKey]: recent.map(compactIvHistoryPoint),
     trendSample,
-    [`_${dataKey}_note`]: `Showing ${recent.length} most recent entries plus ${trendSample.length} evenly spaced trend samples across ${sorted.length} trading days. Use full=true for the raw history.`,
+    [`_${dataKey}_meta`]: {
+      summarized: true,
+      recent: recent.length,
+      trend_samples: trendSample.length,
+      total_trading_days: sorted.length,
+    },
   };
 }
 
@@ -199,6 +204,6 @@ export function trimIvHistoryToRecent(payload: unknown, cap: number): unknown {
   return {
     ...rest,
     [dataKey]: sorted.slice(0, cap),
-    [`_${dataKey}_note`]: `Showing ${cap} most recent entries. Use full=true for the raw history or request a smaller window.`,
+    [`_${dataKey}_meta`]: { showing: cap, total: sorted.length, truncated: true },
   };
 }

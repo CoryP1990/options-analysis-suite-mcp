@@ -174,7 +174,12 @@ export function truncateArrays(obj: Record<string, unknown>, maxItems = 5, spot?
     obj[k] = {
       _count: v.length,
       _preview: preview,
-      _note: `Showing ${maxItems} of ${v.length}${isComparison ? ' (strongest signals)' : ''}. Use full=true for complete data.`,
+      _meta: {
+        showing: maxItems,
+        total: v.length,
+        truncated: true,
+        ...(isComparison ? { selection: 'strongest_signals' } : {}),
+      },
     };
   }
 }
@@ -202,11 +207,11 @@ export function truncateRecord(record: any): void {
  *  and `truncateRecord` (Pass 2). Sync-backed FFT data is sorted newest-first
  *  (`timestamp DESC` in `proxy/routes/sync.ts`), so `pop()` drops the oldest.
  *  Preserves at least 1 record and annotates the response with
- *  `_truncation_note` so AI clients see exactly how many they got vs requested.
+ *  `_truncation_meta` so AI clients see exactly how many they got vs requested.
  *  Returns the mutated response for chaining. No-op when already under budget.
  */
 export function trimToSizeBudget(
-  res: { data: unknown[]; count?: number; _truncation_note?: string; [k: string]: unknown } | null | undefined,
+  res: { data: unknown[]; count?: number; _truncation_meta?: Record<string, unknown>; [k: string]: unknown } | null | undefined,
   budget = FFT_SAFE_SIZE_BUDGET,
 ): void {
   if (!res || !Array.isArray(res.data) || res.data.length <= 1) return;
@@ -217,5 +222,10 @@ export function trimToSizeBudget(
     res.data.pop();
   }
   res.count = res.data.length;
-  res._truncation_note = `Returned ${res.data.length} newest of ${requested} requested FFT runs to fit size budget. Use symbol or since filters to narrow further.`;
+  res._truncation_meta = {
+    returned: res.data.length,
+    requested,
+    selection: 'newest',
+    reason: 'size_budget',
+  };
 }

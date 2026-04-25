@@ -28,7 +28,7 @@ describe('summarizeThresholdHistory', () => {
     expect(summarized.summary.checkedDaysSinceLastThreshold).toBe(0);
     expect(summarized.summary.daysOnThresholdPct).toBe(83.3);
     expect(summarized.recentThresholdDates).toEqual(['2026-03-27', '2026-03-26', '2026-03-25']);
-    expect(String(summarized._recent_threshold_note)).toContain('3 most recent threshold dates out of 5');
+    expect(summarized._recent_threshold_meta).toEqual({ showing: 3, total: 5, truncated: true });
   });
 
   it('marks symbols as recently cleared when the latest threshold date is still near the front of the checked window', () => {

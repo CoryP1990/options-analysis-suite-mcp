@@ -91,7 +91,7 @@ export function shapeSecFilingsResponse(
     ...(payload.error ? { error: payload.error } : {}),
     ...(payload.message ? { message: payload.message } : {}),
     ...(filings.length > recentCap
-      ? { _recent_filings_note: `Showing ${recentFilings.length} most recent filings out of ${filings.length}. Use full=true for the complete filing list.` }
+      ? { _recent_filings_meta: { showing: recentFilings.length, total: filings.length, truncated: true } }
       : {}),
     ...(filings.length === 0
       ? { _filings_note: payload.message ?? 'No recent SEC filings matched the requested symbol and filters.' }

@@ -176,7 +176,7 @@ describe('summarizeFundamentals', () => {
     ]);
     expect(summary.balance_sheet?.[0].totalDebt).toBe(112377000000);
     expect(summary.cash_flow?.[0].freeCashFlow).toBe(98767000000);
-    expect(summary._note).toContain('Default view returns a compact fundamentals summary');
+    expect(summary._summary_meta).toEqual({ compact_view: true, has_coverage: true });
   });
 
   test('handles missing company profile and non-object payloads safely', () => {

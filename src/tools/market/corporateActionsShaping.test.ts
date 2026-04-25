@@ -29,7 +29,7 @@ describe('corporateActionsShaping', () => {
           declarationDate: '2026-01-30',
         },
       ],
-      _historical_note: 'Showing 1 of 2 dividend records. Request a narrower date range or smaller limit for more targeted results.',
+      _historical_meta: { showing: 1, total: 2, truncated: true },
     });
   });
 
@@ -47,7 +47,7 @@ describe('corporateActionsShaping', () => {
       historical: [
         { date: '2022-08-25', numerator: 3, denominator: 1, label: '3:1 split' },
       ],
-      _historical_note: 'Showing 1 of 2 split records. Request a narrower date range or smaller limit for more targeted results.',
+      _historical_meta: { showing: 1, total: 2, truncated: true },
     });
   });
 
@@ -91,7 +91,7 @@ describe('corporateActionsShaping', () => {
           declarationDate: '2026-03-20',
         },
       ],
-      _dividendCalendar_note: 'Showing 1 of 2 dividend events. Request a narrower date range or smaller limit for more targeted results.',
+      _dividendCalendar_meta: { showing: 1, total: 2, truncated: true },
     });
   });
 

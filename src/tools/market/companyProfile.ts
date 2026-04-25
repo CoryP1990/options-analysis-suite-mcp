@@ -9,7 +9,7 @@ export function register(server: McpServer, client: ProxyClient): void {
     'get_company_profile',
     {
       title: 'Company Profile',
-      description: 'Get company profile data for a symbol with a compact normalized default view. Returns sector, industry, market cap, float metrics, key identifiers, and a trimmed business description. Use full=true for the raw synced profile row.',
+      description: 'Get company profile data for a symbol with a compact normalized default view. Returns sector, industry, market cap, float metrics, key identifiers, and a trimmed business description.',
       inputSchema: {
         symbol: z.string().describe('Ticker symbol (e.g., AAPL, TSLA)'),
         full: z.boolean().optional().describe('Return the raw synced company-profile row instead of the compact normalized summary.'),

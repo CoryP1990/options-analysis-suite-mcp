@@ -63,6 +63,6 @@ describe('summarizeEarnings', () => {
     }, 8) as Record<string, any>;
 
     expect(summarized.earnings_history).toHaveLength(8);
-    expect(String(summarized._earnings_history_note)).toContain('8 most recent meaningful quarters out of 10');
+    expect(summarized._earnings_history_meta).toEqual({ showing: 8, total: 10, truncated: true });
   });
 });

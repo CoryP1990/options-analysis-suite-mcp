@@ -9,7 +9,7 @@ export function register(server: McpServer, client: ProxyClient): void {
     'get_options_chain',
     {
       title: 'Options Chain',
-      description: 'Get the end-of-day options chain snapshot from the latest available completed trading session by default. Default view summarizes expirations, ATM term structure, skew, and representative near-money contracts across the curve while avoiding same-day expiry noise when later expirations exist; set date to query a specific session, and use full=true for the raw chain.',
+      description: 'Get the end-of-day options chain snapshot from the latest available completed trading session by default. Default view summarizes expirations, ATM term structure, skew, and representative near-money contracts across the curve while avoiding same-day expiry noise when later expirations exist; set date to query a specific session.',
       inputSchema: {
         symbol: z.string().describe('Ticker symbol (e.g., AAPL, SPY)'),
         date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe('Optional market date in YYYY-MM-DD format. Defaults to the latest available options-chain session for this symbol.'),

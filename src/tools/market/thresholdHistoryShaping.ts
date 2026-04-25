@@ -94,8 +94,8 @@ export function summarizeThresholdHistory(
       source: payload.source ?? null,
     },
     recentThresholdDates: normalizedThresholdDates.slice(0, recentCap),
-    _recent_threshold_note: normalizedThresholdDates.length > recentCap
-      ? `Showing ${recentCap} most recent threshold dates out of ${normalizedThresholdDates.length}. Use full=true for the raw date list.`
+    _recent_threshold_meta: normalizedThresholdDates.length > recentCap
+      ? { showing: recentCap, total: normalizedThresholdDates.length, truncated: true }
       : undefined,
     ...(normalizedThresholdDates.length === 0
       ? { _threshold_note: 'The symbol did not appear on the threshold list in the requested checked-date window.' }

@@ -10,7 +10,7 @@ export function register(server: McpServer, client: ProxyClient): void {
     'get_analysis_rollups',
     {
       title: 'Analysis Rollups',
-      description: 'Get pre-computed daily or weekly aggregates of the user\'s analysis activity per symbol. Default response returns compact rollup rows plus a cross-period summary of volatility, spot, and model usage trends. Use full=true for the raw synced rollup rows.',
+      description: 'Get pre-computed daily or weekly aggregates of the user\'s analysis activity per symbol. Default response returns compact rollup rows plus a cross-period summary of volatility, spot, and model usage trends.',
       inputSchema: {
         symbol: z.string().describe('Ticker symbol'),
         period: z.enum(['day', 'week']).default('day').describe('Aggregation period'),

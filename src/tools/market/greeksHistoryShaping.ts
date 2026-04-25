@@ -155,7 +155,12 @@ export function summarizeGreeksHistory(
     },
     data: recent.map(compactGreeksHistoryPoint),
     trendSample,
-    _data_note: `Showing ${recent.length} most recent entries plus ${trendSample.length} evenly spaced trend samples across ${sorted.length} trading days. Use full=true for the raw history.`,
+    _data_meta: {
+      summarized: true,
+      recent: recent.length,
+      trend_samples: trendSample.length,
+      total_trading_days: sorted.length,
+    },
   };
 }
 
@@ -175,6 +180,6 @@ export function trimGreeksHistoryToRecent(payload: unknown, cap: number): unknow
   return {
     ...rest,
     data: sorted.slice(0, cap),
-    _data_note: `Showing ${cap} most recent entries. Use full=true for the raw history or narrow the date range.`,
+    _data_meta: { showing: cap, total: sorted.length, truncated: true },
   };
 }

@@ -193,20 +193,12 @@ export function summarizeTradingHalts(
     ? { ...((payload as TradingHaltsPayload).summary as Record<string, unknown>) }
     : {};
 
-  const notes: string[] = [];
-  if (duplicateRowsRemoved > 0) {
-    notes.push(`Removed ${duplicateRowsRemoved} duplicate halt rows from overlapping exchange feeds.`);
-  }
-  if (activeHalts.length > 0) {
-    notes.push(`Prioritized ${activeHalts.length} currently active halts.`);
-  }
-  if (olderActiveRowsCollapsed > 0) {
-    notes.push(`Collapsed ${olderActiveRowsCollapsed} older unresolved halt rows for symbols with newer active halts.`);
-  }
   const omittedVolatilityCount = deduped.filter((halt) => !isActiveHalt(halt) && isVolatilityHalt(halt)).length - recentVolatilityHalts.length;
-  if (omittedVolatilityCount > 0) {
-    notes.push(`Condensed ${omittedVolatilityCount} resumed volatility pauses. Use full=true for the full halt tape.`);
-  }
+  const haltsMeta: Record<string, number | boolean> = {};
+  if (duplicateRowsRemoved > 0) haltsMeta.duplicateRowsRemoved = duplicateRowsRemoved;
+  if (activeHalts.length > 0) haltsMeta.activeHaltsPrioritized = activeHalts.length;
+  if (olderActiveRowsCollapsed > 0) haltsMeta.olderActiveRowsCollapsed = olderActiveRowsCollapsed;
+  if (omittedVolatilityCount > 0) haltsMeta.condensedResumedVolatility = omittedVolatilityCount;
 
   return {
     summary: {
@@ -220,7 +212,7 @@ export function summarizeTradingHalts(
     activeHalts: activeHalts.map(trimHalt),
     recentMaterialHalts: recentMaterialHalts.map(trimHalt),
     recentVolatilityHalts: recentVolatilityHalts.map(trimHalt),
-    _halts_note: notes.join(' '),
+    ...(Object.keys(haltsMeta).length > 0 ? { _halts_meta: haltsMeta } : {}),
   };
 }
 
@@ -257,13 +249,12 @@ export function summarizeSymbolTradingHalts(payload: unknown): unknown {
   const durations = resumedHalts
     .map(inferDurationMinutes)
     .filter((value): value is number => value != null && Number.isFinite(value));
-  const notes: string[] = [];
+  const haltsMeta: Record<string, number | boolean> = {};
 
-  if (duplicateRowsRemoved > 0) {
-    notes.push(`Removed ${duplicateRowsRemoved} duplicate halt rows for this symbol.`);
-  }
+  if (duplicateRowsRemoved > 0) haltsMeta.duplicateRowsRemoved = duplicateRowsRemoved;
   if (olderActiveRowsCollapsed > 0) {
-    notes.push(`Showing only the latest unresolved halt; omitted ${olderActiveRowsCollapsed} older unresolved rows. Use full=true for the raw feed history.`);
+    haltsMeta.showingLatestUnresolvedOnly = true;
+    haltsMeta.olderActiveRowsCollapsed = olderActiveRowsCollapsed;
   }
 
   return {
@@ -282,6 +273,6 @@ export function summarizeSymbolTradingHalts(payload: unknown): unknown {
     },
     activeHalt: activeHalts[0] ? trimSymbolHistoryEntry(activeHalts[0]) : null,
     history: visibleHistory.map(trimSymbolHistoryEntry),
-    _halts_note: notes.join(' '),
+    ...(Object.keys(haltsMeta).length > 0 ? { _halts_meta: haltsMeta } : {}),
   };
 }

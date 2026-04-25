@@ -23,7 +23,7 @@ export function shapeMarketRegimeResponse(payload: unknown): unknown {
 
   if (zScores) {
     shaped.feature_z_scores = zScores;
-    shaped._feature_vector_note = 'Raw feature-vector internals are omitted from the default market summary; use include_symbols=true for the full regime payload.';
+    shaped._feature_vector_meta = { raw_internals_omitted: true };
   }
 
   delete shaped.vector;

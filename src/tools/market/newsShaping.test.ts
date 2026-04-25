@@ -185,7 +185,7 @@ describe('shapeNewsResponse', () => {
 
     const result = shapeNewsResponse('AAPL', payload, APPLE_PROFILE) as {
       results: Array<Record<string, unknown>>;
-      _results_note?: string;
+      _results_meta?: Record<string, unknown>;
     };
 
     expect(result.results).toEqual([
@@ -198,8 +198,7 @@ describe('shapeNewsResponse', () => {
         summary: 'Apple expanded enterprise services and device-management tooling.',
       },
     ]);
-    expect(result._results_note).toContain('Omitted 2 filing-style ownership updates');
-    expect(result._results_note).toContain('use get_sec_filings or full=true');
+    expect(result._results_meta?.filingStyleOmitted).toBe(2);
   });
 
   test('falls back to the most recent raw items when nothing clears the relevance threshold', () => {
@@ -213,13 +212,13 @@ describe('shapeNewsResponse', () => {
 
     const result = shapeNewsResponse('AAPL', payload, APPLE_PROFILE) as {
       results: Array<Record<string, unknown>>;
-      _results_note?: string;
+      _results_meta?: Record<string, unknown>;
     };
 
     expect(result.results).toHaveLength(10);
     expect(result.results[0]?.title).toBe('Market roundup item 1');
     expect(result.results[9]?.title).toBe('Market roundup item 10');
-    expect(result._results_note).toBe('Showing top 10 recent articles out of 12 items.');
+    expect(result._results_meta).toMatchObject({ showing: 10, total: 12, relevanceRanked: false });
   });
 
   test('keeps quarterly result headlines while filtering third-party name mentions', () => {
@@ -362,7 +361,7 @@ describe('shapeNewsResponse', () => {
 
     const result = shapeNewsResponse('TSLA', payload, TESLA_PROFILE) as {
       results: Array<Record<string, unknown>>;
-      _results_note?: string;
+      _results_meta?: Record<string, unknown>;
     };
 
     expect(result.results).toHaveLength(2);
@@ -370,7 +369,7 @@ describe('shapeNewsResponse', () => {
       'Tesla, SpaceX Terafab plan seen as key to easing AI bottleneck',
       'Tesla Fourth Quarter 2025 Production, Deliveries & Deployments',
     ]));
-    expect(result._results_note).toContain('generic market-commentary items');
+    expect(result._results_meta?.lowSignalOmitted).toBeDefined();
   });
 
   test('treats normalized low-signal source domains as commentary even without title phrases', () => {
@@ -402,7 +401,7 @@ describe('shapeNewsResponse', () => {
 
     const result = shapeNewsResponse('TSLA', payload, TESLA_PROFILE) as {
       results: Array<Record<string, unknown>>;
-      _results_note?: string;
+      _results_meta?: Record<string, unknown>;
     };
 
     expect(result.results).toHaveLength(2);
@@ -411,7 +410,7 @@ describe('shapeNewsResponse', () => {
       'Tesla Fourth Quarter 2025 Production, Deliveries & Deployments',
     ]));
     expect(result.results.map((item) => item.title)).not.toContain("This Could Cut Tesla's Stock Price By 70%");
-    expect(result._results_note).toContain('Omitted 1 generic market-commentary items');
+    expect(result._results_meta?.lowSignalOmitted).toBe(1);
   });
 
   test('retains low-signal commentary when it is the only relevant news available', () => {
@@ -472,14 +471,14 @@ describe('shapeNewsResponse', () => {
 
     const result = shapeNewsResponse('AAPL', payload, APPLE_PROFILE) as {
       results: Array<Record<string, unknown>>;
-      _results_note?: string;
+      _results_meta?: Record<string, unknown>;
     };
 
     expect(result.results.map((item) => item.title)).toEqual([
       'Apple iPhone loyalty strengthens, supporting services growth outlook',
       "Apple's Worldwide Developers Conference returns the week of June 8",
     ]);
-    expect(result._results_note).toContain('generic market-commentary items');
+    expect(result._results_meta?.lowSignalOmitted).toBeDefined();
   });
 
   test('omits legal press-release noise when stronger Tesla catalyst news exists', () => {
@@ -520,12 +519,12 @@ describe('shapeNewsResponse', () => {
 
     const result = shapeNewsResponse('TSLA', payload, TESLA_PROFILE) as {
       results: Array<Record<string, unknown>>;
-      _results_note?: string;
+      _results_meta?: Record<string, unknown>;
     };
 
     expect(result.results).toHaveLength(1);
     expect(result.results[0]?.title).toBe('Tesla, SpaceX Terafab plan seen as key to easing AI bottleneck');
-    expect(result._results_note).toContain('stale company press releases');
+    expect(result._results_meta?.stalePressReleaseOmitted).toBeDefined();
   });
 
   test('omits third-party press releases that only mention the company indirectly when direct company news exists', () => {
@@ -559,7 +558,7 @@ describe('shapeNewsResponse', () => {
 
     const result = shapeNewsResponse('AAPL', payload, APPLE_PROFILE) as {
       results: Array<Record<string, unknown>>;
-      _results_note?: string;
+      _results_meta?: Record<string, unknown>;
     };
 
     expect(result.results.map((item) => item.title)).toEqual([
@@ -569,7 +568,7 @@ describe('shapeNewsResponse', () => {
     expect(result.results.map((item) => item.title)).not.toContain(
       "Other World Computing (OWC) Announces Storage and Connectivity Solutions for Apple's New MacBook Neo",
     );
-    expect(result._results_note).toContain('Showing 2 relevance-ranked articles out of 3 recent items.');
+    expect(result._results_meta).toMatchObject({ showing: 2, total: 3, relevanceRanked: true });
   });
 
   test('omits stock-sentiment commentary when stronger direct Tesla news exists', () => {
@@ -637,7 +636,7 @@ describe('shapeNewsResponse', () => {
 
     const result = shapeNewsResponse('TSLA', payload, TESLA_PROFILE) as {
       results: Array<Record<string, unknown>>;
-      _results_note?: string;
+      _results_meta?: Record<string, unknown>;
     };
 
     expect(result.results.map((item) => item.title)).toEqual([
@@ -648,8 +647,8 @@ describe('shapeNewsResponse', () => {
       "These 3 'Mag 7' Stocks To Likely Lead The Rest",
       "Why Tesla Investors Should Care About SpaceX's IPO",
     ]));
-    expect(result._results_note).toContain('stale company press releases');
-    expect(result._results_note).toContain('generic market-commentary items');
+    expect(result._results_meta?.stalePressReleaseOmitted).toBeDefined();
+    expect(result._results_meta?.lowSignalOmitted).toBeDefined();
   });
 
   test('demotes stale company press releases below fresher direct company news', () => {
@@ -695,13 +694,13 @@ describe('shapeNewsResponse', () => {
       industry: 'Internet Content & Information',
     }) as {
       results: Array<Record<string, unknown>>;
-      _results_note?: string;
+      _results_meta?: Record<string, unknown>;
     };
 
     expect(result.results.map((item) => item.title)).toEqual([
       'Meta data-center deal revised to lower customer costs',
     ]);
-    expect(result._results_note).toContain('stale company press releases');
+    expect(result._results_meta?.stalePressReleaseOmitted).toBeDefined();
   });
 
   test('infers BusinessWire press-release dates for stale-ranking and returned date fields', () => {
@@ -726,12 +725,12 @@ describe('shapeNewsResponse', () => {
 
     const result = shapeNewsResponse('AAPL', payload, APPLE_PROFILE) as {
       results: Array<Record<string, unknown>>;
-      _results_note?: string;
+      _results_meta?: Record<string, unknown>;
     };
 
     expect(result.results).toHaveLength(1);
     expect(result.results[0]?.title).toBe('Apple Plans to Allow Siri to Access Multiple AI Assistants');
-    expect(result._results_note).toContain('stale company press releases');
+    expect(result._results_meta?.stalePressReleaseOmitted).toBeDefined();
   });
 
   test('prefers direct Apple operating news over roundup and indirect mention noise', () => {
@@ -777,14 +776,14 @@ describe('shapeNewsResponse', () => {
 
     const result = shapeNewsResponse('AAPL', payload, APPLE_PROFILE) as {
       results: Array<Record<string, unknown>>;
-      _results_note?: string;
+      _results_meta?: Record<string, unknown>;
     };
 
     expect(result.results.map((item) => item.title)).toEqual([
       'Apple hires ex-Google executive to head AI marketing amid push to improve Siri',
       'Apple expands American manufacturing program with four new partners',
     ]);
-    expect(result._results_note).toContain('Showing 2 relevance-ranked articles out of 5 recent items.');
+    expect(result._results_meta).toMatchObject({ showing: 2, total: 5, relevanceRanked: true });
   });
 
   test('collapses near-duplicate Apple event coverage into the strongest source per story', () => {
@@ -845,7 +844,7 @@ describe('shapeNewsResponse', () => {
 
     const result = shapeNewsResponse('AAPL', payload, APPLE_PROFILE) as {
       results: Array<Record<string, unknown>>;
-      _results_note?: string;
+      _results_meta?: Record<string, unknown>;
     };
 
     expect(result.results.map((item) => item.title)).toEqual([
@@ -854,7 +853,7 @@ describe('shapeNewsResponse', () => {
       'Apple expands American manufacturing program with four new partners',
       "Apple's Worldwide Developers Conference returns the week of June 8",
     ]);
-    expect(result._results_note).toContain('Collapsed 3 near-duplicate articles');
+    expect(result._results_meta?.nearDuplicatesCollapsed).toBe(3);
   });
 
   test('prefers direct Meta reporting over stock-commentary and options-flow recaps', () => {
@@ -919,13 +918,13 @@ describe('shapeNewsResponse', () => {
       industry: 'Internet Content & Information',
     }) as {
       results: Array<Record<string, unknown>>;
-      _results_note?: string;
+      _results_meta?: Record<string, unknown>;
     };
 
     expect(result.results.map((item) => item.title)).toEqual([
       'Utility Entergy says revised Meta data-center deal to deliver higher customer savings',
     ]);
-    expect(result._results_note).toContain('generic market-commentary items');
+    expect(result._results_meta?.lowSignalOmitted).toBeDefined();
   });
 
   test('demotes Tesla competitor and low-signal commentary when stronger direct Tesla news exists', () => {
@@ -971,13 +970,13 @@ describe('shapeNewsResponse', () => {
 
     const result = shapeNewsResponse('TSLA', payload, TESLA_PROFILE) as {
       results: Array<Record<string, unknown>>;
-      _results_note?: string;
+      _results_meta?: Record<string, unknown>;
     };
 
     expect(result.results.map((item) => item.title)).toEqual([
       'Tesla, SpaceX Terafab plan seen as key to easing AI bottleneck',
     ]);
-    expect(result._results_note).toContain('Showing 1 relevance-ranked articles out of 5 recent items.');
+    expect(result._results_meta).toMatchObject({ showing: 1, total: 5, relevanceRanked: true });
   });
 
   test('infers PRNewswire-style dateline dates when explicit publish timestamps are missing', () => {
@@ -1027,12 +1026,12 @@ describe('shapeNewsResponse', () => {
 
     const result = shapeNewsResponse('XLY', payload, XLY_PROFILE) as {
       results: Array<Record<string, unknown>>;
-      _results_note?: string;
+      _results_meta?: Record<string, unknown>;
     };
 
     expect(result.results).toHaveLength(1);
     expect(result.results[0]?.title).toBe('Should You Invest in the State Street Consumer Discretionary Select Sector SPDR ETF (XLY)?');
-    expect(result._results_note).toContain('Showing 1 relevance-ranked articles out of 2 recent items.');
+    expect(result._results_meta).toMatchObject({ showing: 1, total: 2, relevanceRanked: true });
   });
 
   test('keeps market ETF headlines that reference the benchmark and ETF symbol directly', () => {
@@ -1057,12 +1056,12 @@ describe('shapeNewsResponse', () => {
 
     const result = shapeNewsResponse('SPY', payload, SPY_PROFILE) as {
       results: Array<Record<string, unknown>>;
-      _results_note?: string;
+      _results_meta?: Record<string, unknown>;
     };
 
     expect(result.results).toHaveLength(1);
     expect(result.results[0]?.title).toBe('S&P 500 Is Sitting 6% Below Its January Record. Is Now the Time to Add to Your SPY Position?');
-    expect(result._results_note).toContain('Showing 1 relevance-ranked articles out of 2 recent items.');
+    expect(result._results_meta).toMatchObject({ showing: 1, total: 2, relevanceRanked: true });
   });
 
   test('filters live META stock-commentary noise when direct company reporting exists', () => {
@@ -1099,13 +1098,13 @@ describe('shapeNewsResponse', () => {
       industry: 'Internet Content & Information',
     }) as {
       results: Array<Record<string, unknown>>;
-      _results_note?: string;
+      _results_meta?: Record<string, unknown>;
     };
 
     expect(result.results.map((item) => item.title)).toEqual([
       'Meta data-center deal revised to lower customer costs',
     ]);
-    expect(result._results_note).toContain('generic market-commentary items');
+    expect(result._results_meta?.lowSignalOmitted).toBeDefined();
   });
 
   test('filters live Tesla commentary and indirect comparison headlines when direct Tesla news exists', () => {
@@ -1151,13 +1150,13 @@ describe('shapeNewsResponse', () => {
 
     const result = shapeNewsResponse('TSLA', payload, TESLA_PROFILE) as {
       results: Array<Record<string, unknown>>;
-      _results_note?: string;
+      _results_meta?: Record<string, unknown>;
     };
 
     expect(result.results.map((item) => item.title)).toEqual([
       'Tesla, SpaceX Terafab plan seen as key to easing AI bottleneck',
     ]);
-    expect(result._results_note).toContain('generic market-commentary items');
+    expect(result._results_meta?.lowSignalOmitted).toBeDefined();
   });
 
   test('filters other-ticker ETF headlines and listicle noise when stronger SPY benchmark news exists', () => {
@@ -1189,13 +1188,13 @@ describe('shapeNewsResponse', () => {
 
     const result = shapeNewsResponse('SPY', payload, SPY_PROFILE) as {
       results: Array<Record<string, unknown>>;
-      _results_note?: string;
+      _results_meta?: Record<string, unknown>;
     };
 
     expect(result.results.map((item) => item.title)).toEqual([
       'S&P 500 target rises as strategists update year-end forecasts; SPY holders watch benchmark',
     ]);
-    expect(result._results_note).toContain('Showing 1 relevance-ranked articles out of 3 recent items.');
+    expect(result._results_meta).toMatchObject({ showing: 1, total: 3, relevanceRanked: true });
   });
 
   test('requires strong ETF title references when direct XLK fund news exists', () => {
@@ -1227,13 +1226,13 @@ describe('shapeNewsResponse', () => {
 
     const result = shapeNewsResponse('XLK', payload, XLK_PROFILE) as {
       results: Array<Record<string, unknown>>;
-      _results_note?: string;
+      _results_meta?: Record<string, unknown>;
     };
 
     expect(result.results.map((item) => item.title)).toEqual([
       'XLK Offers Focused Access to Megacap Technology Leaders',
     ]);
-    expect(result._results_note).toContain('Showing 1 relevance-ranked articles out of 3 recent items.');
+    expect(result._results_meta).toMatchObject({ showing: 1, total: 3, relevanceRanked: true });
   });
 
   test('filters legal-alert noise and generic analyst churn for JPM when more substantive bank news exists', () => {
@@ -1265,13 +1264,13 @@ describe('shapeNewsResponse', () => {
 
     const result = shapeNewsResponse('JPM', payload, JPM_PROFILE) as {
       results: Array<Record<string, unknown>>;
-      _results_note?: string;
+      _results_meta?: Record<string, unknown>;
     };
 
     expect(result.results.map((item) => item.title)).toEqual([
       'Large Banks Score Major Regulatory Win That Could Free Up Tens of Billions in Capital. Should You Buy JPMorgan Chase Stock?',
     ]);
-    expect(result._results_note).toContain('generic market-commentary items');
+    expect(result._results_meta?.lowSignalOmitted).toBeDefined();
   });
 
   test('omits insider-sale and valuation chatter for Nvidia when stronger direct news exists', () => {
@@ -1352,7 +1351,7 @@ describe('shapeNewsResponse', () => {
 
     const result = shapeNewsResponse('NVDA', payload, NVIDIA_PROFILE) as {
       results: Array<Record<string, unknown>>;
-      _results_note?: string;
+      _results_meta?: Record<string, unknown>;
     };
 
     expect(result.results.map((item) => item.title)).toEqual(expect.arrayContaining([
@@ -1368,7 +1367,7 @@ describe('shapeNewsResponse', () => {
       "Nvidia won't be dead money for much longer",
       'Nvidia Stock Has Just Become the Bargain of the AI Boom',
     ]));
-    expect(result._results_note).toContain('generic market-commentary items');
+    expect(result._results_meta?.lowSignalOmitted).toBeDefined();
   });
 
   test('omits generic stock-move and peer-comparison chatter for AMD when direct AMD news exists', () => {
@@ -1428,7 +1427,7 @@ describe('shapeNewsResponse', () => {
 
     const result = shapeNewsResponse('AMD', payload, AMD_PROFILE) as {
       results: Array<Record<string, unknown>>;
-      _results_note?: string;
+      _results_meta?: Record<string, unknown>;
     };
 
     expect(result.results.map((item) => item.title)).toEqual(expect.arrayContaining([
@@ -1442,7 +1441,7 @@ describe('shapeNewsResponse', () => {
       'Intel Arrow Lake Refresh: The Budget CPU That Finally Gives AMD a Run for Its Money',
       'Nvidia, AMD Rally As War Fears Ease',
     ]));
-    expect(result._results_note).toContain('generic market-commentary items');
+    expect(result._results_meta?.lowSignalOmitted).toBeDefined();
   });
 
   test('omits low-quality index-market chatter for SPY when stronger benchmark reporting exists', () => {
@@ -1502,7 +1501,7 @@ describe('shapeNewsResponse', () => {
 
     const result = shapeNewsResponse('SPY', payload, SPY_PROFILE) as {
       results: Array<Record<string, unknown>>;
-      _results_note?: string;
+      _results_meta?: Record<string, unknown>;
     };
 
     expect(result.results.map((item) => item.title)).toEqual(expect.arrayContaining([
@@ -1514,7 +1513,7 @@ describe('shapeNewsResponse', () => {
       'These 10 top-rated stocks are crushing the S&P 500 — yet the media and Wall Street ignore them',
       "S&P 500 Falls As Trump's Ceasefire Hopes Dim: Fear & Greed Index Remains In 'Extreme Fear' Zone",
     ]));
-    expect(result._results_note).toContain('generic market-commentary items');
+    expect(result._results_meta?.lowSignalOmitted).toBeDefined();
   });
 
   test('prefers benchmark headlines over ETF comparison listicles for broad-market ETFs', () => {
@@ -1553,7 +1552,7 @@ describe('shapeNewsResponse', () => {
 
     const result = shapeNewsResponse('SPY', payload, SPY_PROFILE) as {
       results: Array<Record<string, unknown>>;
-      _results_note?: string;
+      _results_meta?: Record<string, unknown>;
     };
 
     expect(result.results.map((item) => item.title)).toEqual(expect.arrayContaining([
@@ -1642,13 +1641,13 @@ describe('shapeNewsResponse', () => {
 
     const result = shapeNewsResponse('XLK', payload, XLK_PROFILE) as {
       results: Array<Record<string, unknown>>;
-      _results_note?: string;
+      _results_meta?: Record<string, unknown>;
     };
 
     expect(result.results.map((item) => item.title)).toEqual([
       'XLK Offers Broader Tech Diversification, While SOXX Targets Semiconductor Stocks. Which Is the Better Investment?',
     ]);
-    expect(result._results_note).toContain('Showing 1 relevance-ranked articles out of 4 recent items.');
+    expect(result._results_meta).toMatchObject({ showing: 1, total: 4, relevanceRanked: true });
   });
 
   test('prefers fund-specific XLK articles over generic ETF comparisons when available', () => {

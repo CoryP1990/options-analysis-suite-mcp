@@ -48,7 +48,7 @@ export function register(server: McpServer, client: ProxyClient): void {
         res.data = deduped.records;
         res.count = res.data.length;
         if (deduped.omittedCount > 0) {
-          res._dedupe_note = `Collapsed ${deduped.omittedCount} near-identical reruns from the default view.`;
+          res._dedupe_meta = { collapsed_near_identical_reruns: deduped.omittedCount, source: 'default_view' };
         }
         for (const record of res.data) shapeAnalysisResultRecord(record);
         compactAnalysisHistoryResponse(res);
@@ -85,12 +85,12 @@ export function register(server: McpServer, client: ProxyClient): void {
 
       res.count = res.data.length;
       if (deduped.omittedCount > 0) {
-        res._dedupe_note = `Collapsed ${deduped.omittedCount} near-identical reruns from the filtered results.`;
+        res._dedupe_meta = { collapsed_near_identical_reruns: deduped.omittedCount, source: 'filtered_results' };
       }
       for (const record of res.data) shapeAnalysisResultRecord(record);
       compactAnalysisHistoryResponse(res);
       if (!fetchedAll && res.data.length < limit) {
-        res._query_note = `Searched ${fetchLimit} most recent records. More records may exist that match your filters — try narrowing by symbol, model, or date range.`;
+        res._query_meta = { searched_recent_records: fetchLimit, more_may_exist: true };
       }
       return res;
     }, { isSyncTool: true }),

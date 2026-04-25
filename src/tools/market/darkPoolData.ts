@@ -26,7 +26,7 @@ function firmResult(result: FetchResult, missingNote: string, failedNote: string
 
 const DARK_POOL_DESCRIPTION = `Get FINRA OTC (dark pool / non-ATS) and ATS (Alternative Trading System) weekly trading statistics for a symbol. The \`view\` param controls the granularity:
 
-• view="summary" (default) — aggregate weekly OTC + ATS volume/trade trends with a compact summary + trend analysis; use full=true for the raw weekly history.
+• view="summary" (default) — aggregate weekly OTC + ATS volume/trade trends with a compact summary + trend analysis.
 • view="dealers" — per-DEALER breakdown of OTC (non-ATS) activity. Top 15 MPIDs per week with participant name, shares, and trades. Answers "who is executing this flow off-exchange, off-ATS?"
 • view="venues" — per-VENUE breakdown of ATS activity. Top 15 dark-pool venues per week with MPID, venue name, shares, and trades. Answers "which dark pools are matching this ticker?"
 • view="all" — returns summary + dealers + venues in one payload. Larger — expect more token usage.

@@ -141,8 +141,7 @@ describe('truncateArrays', () => {
     const result = obj.items as any;
     expect(result._count).toBe(8);
     expect(result._preview).toEqual([1, 2, 3]);
-    expect(result._note).toContain('3 of 8');
-    expect(result._note).not.toContain('strongest signals');
+    expect(result._meta).toEqual({ showing: 3, total: 8, truncated: true });
   });
 
   test('never truncates models or failedModels arrays', () => {
@@ -168,7 +167,7 @@ describe('truncateArrays', () => {
     const result = obj.comparison as any;
     expect(result._count).toBe(6);
     expect(result._preview).toHaveLength(3);
-    expect(result._note).toContain('strongest signals');
+    expect(result._meta?.selection).toBe('strongest_signals');
     // Unanimous entries should be picked first
     const strikes = result._preview.map((c: any) => c.strike);
     expect(strikes).toContain(350); // unanimous_buy
@@ -416,7 +415,7 @@ describe('truncateRecord', () => {
     const comp = record.details.comparison as any;
     expect(comp._count).toBe(200);
     expect(comp._preview).toHaveLength(5);
-    expect(comp._note).toContain('strongest signals');
+    expect(comp._meta?.selection).toBe('strongest_signals');
   });
 
   test('passes spot from data to comparison selection', () => {
@@ -524,8 +523,11 @@ describe('trimToSizeBudget', () => {
     // Final payload is under budget
     expect(JSON.stringify(res).length).toBeLessThanOrEqual(15 * 1024);
     // Note set, count updated
-    expect(res._truncation_note).toContain(`newest of 10`);
-    expect(res._truncation_note).toContain(String(res.data.length));
+    expect(res._truncation_meta).toMatchObject({
+      requested: 10,
+      returned: res.data.length,
+      selection: 'newest',
+    });
     expect(res.count).toBe(res.data.length);
   });
 
@@ -537,7 +539,7 @@ describe('trimToSizeBudget', () => {
     const res: any = { data: [...records], count: 2 };
     trimToSizeBudget(res, 100 * 1024);
     expect(res.data.length).toBe(2);
-    expect(res._truncation_note).toBeUndefined();
+    expect(res._truncation_meta).toBeUndefined();
     expect(res.count).toBe(2);
   });
 
@@ -548,7 +550,7 @@ describe('trimToSizeBudget', () => {
     // Guard against trimming to zero
     expect(res.data.length).toBe(1);
     // Length === 1 means the while loop never entered, so no note
-    expect(res._truncation_note).toBeUndefined();
+    expect(res._truncation_meta).toBeUndefined();
   });
 
   test('no-op on null or malformed input', () => {

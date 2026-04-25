@@ -264,19 +264,19 @@ export function summarizeAnalystData(
   return {
     symbol: data.symbol,
     estimates: estimates.slice(0, estimateCap).map(compactEstimate),
-    _estimates_note: estimates.length > estimateCap
-      ? `Showing ${estimateCap} nearest analyst estimate periods out of ${estimates.length}. Use full=true for the complete history.`
+    _estimates_meta: estimates.length > estimateCap
+      ? { showing: estimateCap, total: estimates.length, truncated: true }
       : undefined,
     price_target_summary: normalizedPriceTargetSummary,
     price_target_consensus: data.price_target_consensus,
     rating_snapshot: data.rating_snapshot,
     historical_rating: summarizedRatings,
-    _historical_rating_note: historicalRatings.length > summarizedRatings.length
-      ? `Collapsed ${historicalRatings.length} daily rating observations into ${summarizedRatings.length} rating streaks. Use full=true for the raw history.`
+    _historical_rating_meta: historicalRatings.length > summarizedRatings.length
+      ? { collapsed: true, raw_observations: historicalRatings.length, streaks: summarizedRatings.length }
       : undefined,
     upgrades_downgrades: upgrades.slice(0, upgradeCap).map(compactUpgrade),
-    _upgrades_downgrades_note: upgrades.length > upgradeCap
-      ? `Showing ${upgradeCap} most recent rating changes out of ${upgrades.length}. Use full=true for the complete upgrades/downgrades history.`
+    _upgrades_downgrades_meta: upgrades.length > upgradeCap
+      ? { showing: upgradeCap, total: upgrades.length, truncated: true }
       : undefined,
     fetched_at: data.fetched_at,
   };

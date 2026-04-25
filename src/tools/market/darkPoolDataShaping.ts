@@ -128,8 +128,13 @@ export function summarizeDarkPoolVenue(
     summary: deriveSummary(sorted, venue.summary),
     weeklyData: recent.map(compactWeeklyPoint),
     trendSample,
-    _weeklyData_note: sorted.length > recent.length
-      ? `Showing ${recent.length} most recent weeks plus ${trendSample.length} evenly spaced trend samples across ${sorted.length} weeks. Use full=true for the raw history.`
+    _weeklyData_meta: sorted.length > recent.length
+      ? {
+          summarized: true,
+          recent_weeks: recent.length,
+          trend_samples: trendSample.length,
+          total_weeks: sorted.length,
+        }
       : undefined,
   };
 }

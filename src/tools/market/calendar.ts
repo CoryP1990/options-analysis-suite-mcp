@@ -18,7 +18,7 @@ import {
 
 const CALENDAR_DESCRIPTION = `Get market calendar events by type. Each type has its own default date window, shaping, and optional filters:
 
-• type="economic" — upcoming macro events (FOMC, CPI, NFP, GDP, etc.) that move options vol. Default from=today, to=30d ahead. Supports country (e.g. US, EU, UK). Use full=true to bypass the catalyst-focused default summary and return the raw feed.
+• type="economic" — upcoming macro events (FOMC, CPI, NFP, GDP, etc.) that move options vol. Default from=today, to=30d ahead. Supports country (e.g. US, EU, UK). The default view focuses on higher-signal catalysts.
 • type="ipo" — upcoming and recent public listings. Default from=30d ago, to=60d ahead, limit=50. Optional symbol filter applied after fetch.
 • type="dividend" — cash dividend events (ex-date, record date, payment date). Default from=7d ago, to=30d ahead, limit=100. Optional symbol filter.
 • type="split" — stock splits (ratios + dates). Default from=30d ago, to=60d ahead, limit=100. Optional symbol filter.

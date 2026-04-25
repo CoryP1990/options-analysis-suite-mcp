@@ -105,7 +105,7 @@ export function register(server: McpServer, client: ProxyClient): void {
     'get_news',
     {
       title: 'News',
-      description: 'Get recent news headlines for a stock. Useful for understanding catalysts behind price or volatility moves, and for assessing event risk before entering an options position. Default response relevance-ranks the latest raw feed against the company profile and suppresses filing-style ownership updates when stronger catalyst news is available. Use full=true for the raw recent feed.',
+      description: 'Get recent news headlines for a stock. Useful for understanding catalysts behind price or volatility moves, and for assessing event risk before entering an options position. Default response relevance-ranks the latest raw feed against the company profile and suppresses filing-style ownership updates when stronger catalyst news is available.',
       inputSchema: {
         symbol: z.string().describe('Ticker symbol'),
         full: z.boolean().optional().describe('Return the raw recent news feed without relevance filtering or response shaping.'),

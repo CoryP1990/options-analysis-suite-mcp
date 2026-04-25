@@ -13,7 +13,7 @@ export function register(server: McpServer, client: ProxyClient): void {
     'get_analysis_history',
     {
       title: 'Analysis History',
-      description: 'Get the user\'s options pricing analysis history — past calculations run in the platform. Each result includes the model used (Black-Scholes, Heston, SABR, etc.), input parameters (spot, strike, volatility, DTE), computed option price, and Greeks. Includes calibration data and model-specific sensitivities when available. Default view collapses near-identical reruns from the same pricing sweep; use full=true for the raw history.',
+      description: 'Get the user\'s options pricing analysis history — past calculations run in the platform. Each result includes the model used (Black-Scholes, Heston, SABR, etc.), input parameters (spot, strike, volatility, DTE), computed option price, and Greeks. Includes calibration data and model-specific sensitivities when available. Default view collapses near-identical reruns from the same pricing sweep.',
       inputSchema: {
         symbol: z.string().optional().describe('Filter by ticker symbol'),
         model: z.string().optional().describe('Filter by pricing model (e.g., BlackScholes, Heston)'),
@@ -36,7 +36,7 @@ export function register(server: McpServer, client: ProxyClient): void {
         res.data = deduped.records;
         res.count = res.data.length;
         if (deduped.omittedCount > 0) {
-          res._dedupe_note = `Collapsed ${deduped.omittedCount} near-identical reruns from the default view. Use full=true for the raw history.`;
+          res._dedupe_meta = { collapsed_near_identical_reruns: deduped.omittedCount };
         }
         for (const record of res.data) shapeAnalysisResultRecord(record);
         compactAnalysisHistoryResponse(res);

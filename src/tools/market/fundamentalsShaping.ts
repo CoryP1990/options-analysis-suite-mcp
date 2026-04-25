@@ -183,11 +183,12 @@ export function summarizeFundamentals(payload: unknown, companyProfile?: unknown
   const hasMetrics = metrics != null && Object.values(metrics).some((value) => typeof value === 'number' && Number.isFinite(value));
   const hasStatements = Boolean(incomeSummary || balanceSummary || cashFlowSummary);
 
-  const note = !hasRatios && !hasMetrics && !hasStatements
+  const hasNoCoverage = !hasRatios && !hasMetrics && !hasStatements;
+  const note = hasNoCoverage
     ? isLikelyEtfProfile(companyProfile)
       ? 'No meaningful company-style TTM ratios or financial statements were available for this symbol. It may be an ETF, fund, index, or another instrument without corporate financial statement coverage.'
       : 'No meaningful TTM ratios or financial statement coverage were available for this symbol.'
-    : 'Default view returns a compact fundamentals summary. Use full=true for the complete financial statements payload.';
+    : undefined;
 
   return {
     symbol: data.symbol,
@@ -233,6 +234,7 @@ export function summarizeFundamentals(payload: unknown, companyProfile?: unknown
     balance_sheet: balanceSummary,
     cash_flow: cashFlowSummary,
     fetched_at: data.fetched_at,
-    _note: note,
+    ...(note ? { _note: note } : {}),
+    _summary_meta: { compact_view: true, has_coverage: !hasNoCoverage },
   };
 }

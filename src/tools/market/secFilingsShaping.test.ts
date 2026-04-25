@@ -53,7 +53,7 @@ describe('shapeSecFilingsResponse', () => {
     expect(shaped.latestByCategory.quarterlyReport.formType).toBe('10-Q');
     expect(shaped.latestByCategory.annualReport.formType).toBe('10-K');
     expect(shaped.recentFilings).toHaveLength(3);
-    expect(String(shaped._recent_filings_note)).toContain('3 most recent filings out of 4');
+    expect(shaped._recent_filings_meta).toEqual({ showing: 3, total: 4, truncated: true });
   });
 
   it('returns a stable empty summary when no filings are available', () => {

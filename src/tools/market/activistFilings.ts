@@ -9,7 +9,7 @@ export function register(server: McpServer, client: ProxyClient): void {
     'get_activist_filings',
     {
       title: 'Activist Filings',
-      description: 'Get Schedule 13D/13G beneficial-ownership filings for a symbol. Default response prioritizes the latest above-threshold holder snapshot per filer and summarizes below-threshold amendments separately so current holders stay visible. Use full=true for the raw filing list.',
+      description: 'Get Schedule 13D/13G beneficial-ownership filings for a symbol. Default response prioritizes the latest above-threshold holder snapshot per filer and summarizes below-threshold amendments separately so current holders stay visible.',
       inputSchema: {
         symbol: z.string().describe('Ticker symbol'),
         full: z.boolean().optional().describe('Return the raw filing list instead of the compact current-holder summary.'),

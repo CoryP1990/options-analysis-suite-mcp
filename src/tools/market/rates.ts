@@ -14,7 +14,7 @@ import { summarizeYieldCurve } from './yieldCurveShaping.js';
 const RATES_DESCRIPTION = `Get Treasury rate data. Pick the view that matches the question:
 
 • view="benchmark" — current platform risk-free rate served at /risk-free-rate (currently a 10Y-based Treasury rate used for options pricing). No params. If you need shorter maturities (1M, 3M, 6M, 2Y, 5Y), use view="curve" instead.
-• view="curve" — full US Treasury yield curve with a compact current-curve summary by default. Returns key maturities, inversion flags, spreads, and small trend samples. Accepts \`weeks\` (1..52, default 12) for trend-context sampling and \`full\` to return the raw curve payload with historical observations.`;
+• view="curve" — full US Treasury yield curve with a compact current-curve summary by default. Returns key maturities, inversion flags, spreads, and small trend samples.`;
 
 export function register(server: McpServer, client: ProxyClient): void {
   server.registerTool(

@@ -31,7 +31,7 @@ describe('summarizeShortVolume', () => {
     expect(summarized.summary.latestVsTrailingAveragePctPoints).toBeCloseTo(-4.46, 2);
     expect(summarized.summary.recentTrend).toBe('near_average');
     expect(summarized.recentHistory).toHaveLength(2);
-    expect(String(summarized._recent_history_note)).toContain('2 most recent sessions out of 3');
+    expect(summarized._recent_history_meta).toEqual({ showing: 2, total: 3, truncated: true });
   });
 });
 
@@ -71,7 +71,7 @@ describe('summarizeShortInterest', () => {
     expect(summarized.summary.latestVsAveragePct).toBeCloseTo(4.66, 2);
     expect(summarized.summary.recentTrend).toBe('rising');
     expect(summarized.recentHistory).toHaveLength(3);
-    expect(String(summarized._recent_history_note)).toContain('3 most recent settlement periods out of 4');
+    expect(summarized._recent_history_meta).toEqual({ showing: 3, total: 4, truncated: true });
   });
 
   it('backfills float metadata from company profile and derives shortPercentOfFloat when missing', () => {

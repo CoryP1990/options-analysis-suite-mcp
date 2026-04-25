@@ -49,14 +49,13 @@ describe('get_rates — routing', () => {
   });
 });
 
-describe('get_rates — benchmark note points to get_rates view="curve"', () => {
-  test('10Y response gets annotated with curve-view redirect', async () => {
+describe('get_rates — benchmark adds 10Y meta annotation', () => {
+  test('10Y response gets annotated with structured rate metadata', async () => {
     const stub = { rate: 0.042, maturity: '10Y', source: 'treasury' };
     const { handler } = createHarness(stub);
     const result = await handler({ view: 'benchmark' });
     const parsed = JSON.parse(result.content[0].text);
-    expect(parsed._rate_note).toContain('view="curve"');
-    expect(parsed._rate_note).not.toContain('get_yield_curve');
+    expect(parsed._rate_meta).toEqual({ source: 'platform_10y_benchmark', maturity: '10Y' });
   });
 
   test('non-10Y response is left unannotated', async () => {
@@ -64,7 +63,7 @@ describe('get_rates — benchmark note points to get_rates view="curve"', () => 
     const { handler } = createHarness(stub);
     const result = await handler({ view: 'benchmark' });
     const parsed = JSON.parse(result.content[0].text);
-    expect(parsed._rate_note).toBeUndefined();
+    expect(parsed._rate_meta).toBeUndefined();
   });
 });
 

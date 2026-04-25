@@ -43,9 +43,9 @@ type SplitCalendarPoint = {
   label?: string | null;
 };
 
-function addTrimNote(result: Record<string, unknown>, key: string, total: number, limit: number, noun: string): Record<string, unknown> {
+function addTrimNote(result: Record<string, unknown>, key: string, total: number, limit: number, _noun: string): Record<string, unknown> {
   if (total > limit) {
-    result[`_${key}_note`] = `Showing ${limit} of ${total} ${noun}. Request a narrower date range or smaller limit for more targeted results.`;
+    result[`_${key}_meta`] = { showing: limit, total, truncated: true };
   }
   return result;
 }

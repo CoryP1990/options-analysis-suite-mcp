@@ -423,7 +423,7 @@ export function summarizeNestedValue(value: unknown, depth = 0): unknown {
     if (value.length <= MAX_INLINE_SCALAR_ARRAY_ITEMS && value.every(isScalar)) return value;
     return {
       _count: value.length,
-      _note: `Omitted ${value.length} items. Use full=true for complete data.`,
+      _omitted: true,
     };
   }
   if (depth >= MAX_SUMMARY_DEPTH) return '[nested object]';
@@ -550,13 +550,13 @@ export function shapeRiskDetails(details: unknown): unknown {
     ...summary
   } = details as Record<string, unknown>;
 
-  const notes: string[] = [];
-  if (correlationMatrix) notes.push('Correlation matrix omitted.');
-  if (mcVarDetails) notes.push('Monte Carlo VaR details omitted.');
+  const omitted: Record<string, unknown> = {};
+  if (correlationMatrix) omitted.correlation_matrix = true;
+  if (mcVarDetails) omitted.mc_var_details = true;
   if (Array.isArray(positionContributions)) {
-    notes.push(`Position contributions omitted (${positionContributions.length} items).`);
+    omitted.position_contributions = positionContributions.length;
   }
-  if (notes.length) summary._note = [...notes, 'Request full data if needed.'].join(' ');
+  if (Object.keys(omitted).length) summary._omitted_meta = omitted;
   return summary;
 }
 
@@ -568,11 +568,11 @@ export function shapeRiskDetails(details: unknown): unknown {
 export function shapePortfolioDetails(details: unknown): unknown {
   if (details == null || typeof details !== 'object' || Array.isArray(details)) return details;
   const summary: Record<string, unknown> = {};
-  const omitted: string[] = [];
+  const omittedArrays: Record<string, number> = {};
 
   for (const [key, value] of Object.entries(details)) {
     if (Array.isArray(value)) {
-      omitted.push(`${key}(${value.length})`);
+      omittedArrays[key] = value.length;
       continue;
     }
     if (key === 'greeks' && value && typeof value === 'object' && !Array.isArray(value)) {
@@ -587,7 +587,7 @@ export function shapePortfolioDetails(details: unknown): unknown {
     summary[key] = roundNestedNumbers(value);
   }
 
-  if (omitted.length) summary._note = `Per-position arrays omitted: ${omitted.join(', ')}. Request full data for breakdown.`;
+  if (Object.keys(omittedArrays).length) summary._omitted_arrays = omittedArrays;
   return summary;
 }
 
@@ -611,7 +611,7 @@ export function compactPortfolioHistoryResponse(res: any, threshold = RESPONSE_C
       .map((holding) => roundNestedNumbers(holding, 4));
     data.topHoldings = trimmed;
     if (holdings.length > keep) {
-      data._topHoldingsNote = `Showing ${keep} of ${holdings.length} holdings. Use full=true for complete allocation.`;
+      data._topHoldingsMeta = { showing: keep, total: holdings.length };
     }
   }
 }

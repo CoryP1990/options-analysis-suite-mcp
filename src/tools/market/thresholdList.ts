@@ -9,7 +9,7 @@ export function register(server: McpServer, client: ProxyClient): void {
     'get_threshold_history',
     {
       title: 'Threshold List History',
-      description: 'Get SEC Regulation SHO threshold-list history for a symbol with a compact status summary by default. Highlights whether the symbol is currently on the list, recently cleared, or only appeared historically in the requested window. Use full=true for the raw date list.',
+      description: 'Get SEC Regulation SHO threshold-list history for a symbol with a compact status summary by default. Highlights whether the symbol is currently on the list, recently cleared, or only appeared historically in the requested window.',
       inputSchema: {
         symbol: z.string().describe('Ticker symbol'),
         days: z.number().int().min(1).max(90).default(30).describe('Number of days to check (default 30, max 90)'),

@@ -12,8 +12,8 @@ import { summarizeShortInterest, summarizeShortVolume } from './marketFlowShapin
 
 const SHORT_DATA_DESCRIPTION = `Get FINRA short-side data for a symbol. Two related but distinct series:
 
-• type="volume" — DAILY short-volume activity. Compact summary-first view (latest day + trailing averages + recent-trend flag) by default; full=true returns the raw daily history trimmed to the most recent 30 entries.
-• type="interest" — BIWEEKLY short-interest settlement reports (position-based, not flow-based). Compact summary-first view (latest settlement + trailing averages + rising/falling trend) by default; full=true returns the raw FINRA settlement history. Short-percent-of-float is enriched from the company profile when the FINRA feed omits it.
+• type="volume" — DAILY short-volume activity. Compact summary-first view (latest day + trailing averages + recent-trend flag) by default.
+• type="interest" — BIWEEKLY short-interest settlement reports (position-based, not flow-based). Compact summary-first view (latest settlement + trailing averages + rising/falling trend) by default. Short-percent-of-float is enriched from the company profile when the FINRA feed omits it.
 
 Symbol is required for both.`;
 
@@ -37,8 +37,9 @@ export function register(server: McpServer, client: ProxyClient): void {
         const res = await client.get(`/finra/short-volume/${upperSymbol}`) as any;
         if (full) {
           if (res && Array.isArray(res.history) && res.history.length > 30) {
-            res._history_note = `Trimmed from ${res.history.length} to most recent 30 entries.`;
+            const original = res.history.length;
             res.history = res.history.slice(0, 30);
+            res._history_meta = { trimmed: true, original_length: original, returned: 30 };
           }
           return { _skipSizeGuard: true, data: res };
         }

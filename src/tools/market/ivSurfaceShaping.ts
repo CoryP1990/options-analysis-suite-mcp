@@ -155,6 +155,11 @@ export function summarizeIvSurface(payload: unknown): unknown {
     atmTermStructure,
     skewSummary,
     surfacePreview,
-    _surface_note: `Showing representative 3-point smiles for ${surfacePreview.length} nodes across ${expirations.length} expirations. Use full=true for the full surface grid.`,
+    _surface_meta: {
+      preview: true,
+      smiles_per_expiration: 3,
+      preview_nodes: surfacePreview.length,
+      expirations: expirations.length,
+    },
   };
 }

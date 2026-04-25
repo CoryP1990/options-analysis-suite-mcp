@@ -121,13 +121,11 @@ export function shapeActivistFilingsResponse(payload: ActivistFilingsResponse): 
     keyHolderHighlights,
     currentHolderSnapshot,
     recentBelowThreshold,
-    _snapshot_note: currentHolderSnapshot.length > 0
-      ? `Default view prioritizes the latest above-threshold filing per filer. Showing ${currentHolderSnapshot.length} current holder snapshots out of ${filings.length} total filings.`
-      : 'No current above-threshold holders found in the available 13D/13G history.',
+    ...(currentHolderSnapshot.length > 0
+      ? { _snapshot_meta: { current_holder_snapshots: currentHolderSnapshot.length, total_filings: filings.length, prioritized_latest_per_filer: true } }
+      : { _snapshot_status: 'no_current_above_threshold_holders' }),
     ...(recentBelowThreshold.length > 0
-      ? {
-          _below_threshold_note: `Recent filings that appear to drop below 5% ownership are summarized separately so they do not displace current holder context.`,
-        }
+      ? { _below_threshold_meta: { summarized_separately: true } }
       : {}),
   };
 }

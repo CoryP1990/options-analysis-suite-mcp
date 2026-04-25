@@ -171,7 +171,7 @@ export function summarizeYieldCurve(
     historicalSample: sampledHistory,
     source: payload.source ?? null,
     ...(historical.length > sampledHistory.length
-      ? { _historical_note: `Showing ${sampledHistory.length} evenly spaced historical curve samples out of ${historical.length}. Use full=true for the raw historical series.` }
+      ? { _historical_meta: { sampled: sampledHistory.length, total: historical.length, evenly_spaced: true } }
       : {}),
   };
 }

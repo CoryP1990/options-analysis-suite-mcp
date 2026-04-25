@@ -223,6 +223,11 @@ export function summarizeOptionsAnalyticsHistory(
     },
     [dataKey]: recent.map(compactOptionsAnalyticsPoint),
     trendSample,
-    [`_${dataKey}_note`]: `Showing ${recent.length} most recent entries plus ${trendSample.length} evenly spaced trend samples across ${sorted.length} snapshots. Use full=true for the raw history.`,
+    [`_${dataKey}_meta`]: {
+      summarized: true,
+      recent: recent.length,
+      trend_samples: trendSample.length,
+      total_snapshots: sorted.length,
+    },
   };
 }

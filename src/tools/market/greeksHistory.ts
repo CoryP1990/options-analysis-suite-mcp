@@ -13,7 +13,7 @@ export function register(server: McpServer, client: ProxyClient): void {
     'get_greeks_history',
     {
       title: 'Greeks History',
-      description: 'Get historical options Greeks (delta, gamma, theta, vega) for a symbol. Shows how sensitivity profiles and dealer hedging pressure have shifted over time. Large windows return a compact recent/trend summary by default; use dteMin/dteMax, moneyness, or full=true for raw detail.',
+      description: 'Get historical options Greeks (delta, gamma, theta, vega) for a symbol. Shows how sensitivity profiles and dealer hedging pressure have shifted over time. Large windows return a compact recent/trend summary by default.',
       inputSchema: {
         symbol: z.string().describe('Ticker symbol'),
         start: z.string().describe('Start date (YYYY-MM-DD)'),
