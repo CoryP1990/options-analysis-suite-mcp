@@ -174,6 +174,14 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // --- Favicon redirects (Google favicon API uses these for tool-call/directory icons) ---
+
+  if (req.url === '/favicon.ico' || req.url === '/favicon.svg') {
+    res.writeHead(302, { Location: 'https://optionsanalysissuite.com/favicon.svg' });
+    res.end();
+    return;
+  }
+
   // --- OAuth & .well-known routes ---
 
   if (req.url === '/.well-known/oauth-protected-resource') {
