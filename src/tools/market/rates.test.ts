@@ -18,7 +18,7 @@ function createHarness(stubResponse: any = {}) {
 
   const captured: { handler: ToolHandler | null } = { handler: null };
   const fakeServer = {
-    tool: (_name: string, _desc: string, _schema: unknown, handler: ToolHandler) => {
+    registerTool: (_name: string, _config: unknown, handler: ToolHandler) => {
       captured.handler = handler;
     },
   } as unknown as McpServer;

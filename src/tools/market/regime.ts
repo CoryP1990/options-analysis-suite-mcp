@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ProxyClient } from '../../proxy/proxyClient.js';
 import { toolHandler } from '../helpers.js';
-import { shapeMarketRegimeResponse, humanizeDrivers } from './marketRegimeShaping.js';
+import { shapeMarketRegimeResponse, humanizeRegimeEntry } from './marketRegimeShaping.js';
 
 /**
  * Unified regime tool. Replaces get_market_regime, get_intraday_regime,
@@ -25,7 +25,7 @@ function hoistExposures(entry: any): any {
       spotPrice: gex.spotPrice,
       netGamma: gex.netGamma, netDelta: gex.netDelta, netVega: gex.netVega,
       netVanna: gex.netVanna, netCharm: gex.netCharm, netVomma: gex.netVomma,
-      callWall: gex.callWall, putWall: gex.putWall, gammaFlip: gex.gammaFlip,
+      'call wall': gex.callWall, 'put wall': gex.putWall, 'gamma flip': gex.gammaFlip,
       regime: gex.regime, topStrikes: gex.topStrikes,
     };
   }
@@ -63,7 +63,7 @@ export function register(server: McpServer, client: ProxyClient): void {
                 spotPrice: gex.spotPrice,
                 netGamma: gex.netGamma, netDelta: gex.netDelta, netVega: gex.netVega,
                 netVanna: gex.netVanna, netCharm: gex.netCharm, netVomma: gex.netVomma,
-                callWall: gex.callWall, putWall: gex.putWall, gammaFlip: gex.gammaFlip,
+                'call wall': gex.callWall, 'put wall': gex.putWall, 'gamma flip': gex.gammaFlip,
                 regime: gex.regime,
               };
             }
@@ -78,12 +78,20 @@ export function register(server: McpServer, client: ProxyClient): void {
                     spotPrice: gex.spotPrice,
                     netGamma: gex.netGamma, netDelta: gex.netDelta, netVega: gex.netVega,
                     netVanna: gex.netVanna, netCharm: gex.netCharm, netVomma: gex.netVomma,
-                    callWall: gex.callWall, putWall: gex.putWall, gammaFlip: gex.gammaFlip,
+                    'call wall': gex.callWall, 'put wall': gex.putWall, 'gamma flip': gex.gammaFlip,
                     regime: gex.regime,
                   };
                 }
+                // Humanize per-symbol drivers + vector feature-key records so
+                // include_symbols=true raw payload doesn't leak backend identifiers.
+                humanizeRegimeEntry(row);
               }
             }
+          }
+          // Also humanize the top-level market entry for include_symbols=true raw mode
+          // (default scope=market path runs through shapeMarketRegimeResponse separately).
+          if (include_symbols && res.market && typeof res.market === 'object') {
+            humanizeRegimeEntry(res.market);
           }
         }
         if (include_symbols) return { _skipSizeGuard: true, data: res };
@@ -111,9 +119,8 @@ export function register(server: McpServer, client: ProxyClient): void {
                 scan.symbolTier = scan.scope;
                 delete scan.scope;
               }
-              if (Array.isArray(scan.drivers)) {
-                scan.drivers = humanizeDrivers(scan.drivers);
-              }
+              // Humanize drivers + vector feature-key records for the raw intraday payload.
+              humanizeRegimeEntry(scan);
             }
           }
         }
@@ -140,12 +147,11 @@ export function register(server: McpServer, client: ProxyClient): void {
         delete res.scope;
       }
 
-      // Humanize each history entry's driver feature names (snake_case → "Title Case")
-      // so backend identifiers don't surface to end users when the LLM relays the response.
+      // Humanize each history entry's drivers + vector feature-key records so backend
+      // identifiers don't surface to end users when the LLM relays the response.
+      // Covers default mode AND full=true raw payload below.
       for (const entry of res.history) {
-        if (entry && typeof entry === 'object' && Array.isArray(entry.drivers)) {
-          entry.drivers = humanizeDrivers(entry.drivers);
-        }
+        humanizeRegimeEntry(entry);
       }
 
       if (full) {
@@ -156,7 +162,7 @@ export function register(server: McpServer, client: ProxyClient): void {
               spotPrice: gex.spotPrice,
               netGamma: gex.netGamma, netDelta: gex.netDelta, netVega: gex.netVega,
               netVanna: gex.netVanna, netCharm: gex.netCharm, netVomma: gex.netVomma,
-              callWall: gex.callWall, putWall: gex.putWall, gammaFlip: gex.gammaFlip,
+              'call wall': gex.callWall, 'put wall': gex.putWall, 'gamma flip': gex.gammaFlip,
               regime: gex.regime, topStrikes: gex.topStrikes,
             };
           }

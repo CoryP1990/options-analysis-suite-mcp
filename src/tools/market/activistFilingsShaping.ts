@@ -72,6 +72,13 @@ function humanizeOwnershipStatus(status: unknown): string | null {
   return status;
 }
 
+function humanizePurpose(purpose: unknown): string | null {
+  if (typeof purpose !== 'string' || !purpose) return null;
+  if (purpose === 'above_threshold') return 'above threshold';
+  if (purpose === 'below_threshold') return 'below threshold';
+  return purpose;
+}
+
 function trimFiling(filing: ActivistFiling): Record<string, unknown> {
   return {
     formType: filing.formType ?? null,
@@ -81,7 +88,7 @@ function trimFiling(filing: ActivistFiling): Record<string, unknown> {
     percentOwnership: toNumber(filing.percentOwnership),
     ruleBasis: filing.ruleBasis ?? null,
     ownershipStatus: humanizeOwnershipStatus(filing.ownershipStatus),
-    purpose: filing.purpose ?? null,
+    purpose: humanizePurpose(filing.purpose),
     description: filing.description ?? null,
     url: filing.url ?? null,
     accessionNumber: filing.accessionNumber ?? null,

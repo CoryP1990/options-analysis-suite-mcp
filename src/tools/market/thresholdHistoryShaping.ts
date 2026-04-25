@@ -44,10 +44,10 @@ function computeCurrentStreak(checkedDates: string[], thresholdSet: Set<string>)
 }
 
 function buildStatus(isCurrentlyOnThreshold: boolean, lastSeenIndex: number): string {
-  if (isCurrentlyOnThreshold) return 'currently_on_threshold';
-  if (lastSeenIndex >= 0 && lastSeenIndex <= 4) return 'recently_cleared';
-  if (lastSeenIndex >= 0) return 'historical_only';
-  return 'not_on_threshold';
+  if (isCurrentlyOnThreshold) return 'Currently on threshold list';
+  if (lastSeenIndex >= 0 && lastSeenIndex <= 4) return 'Recently cleared';
+  if (lastSeenIndex >= 0) return 'Historical only';
+  return 'Not on threshold list';
 }
 
 export function summarizeThresholdHistory(

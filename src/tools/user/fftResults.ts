@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ProxyClient } from '../../proxy/proxyClient.js';
 import { toolHandler } from '../helpers.js';
-import { TRUNCATION_THRESHOLD, shapeRecord, truncateRecord, trimToSizeBudget } from './fftResponseShaping.js';
+import { TRUNCATION_THRESHOLD, shapeRecord, truncateRecord, trimToSizeBudget, humanizeSignalsDeep } from './fftResponseShaping.js';
 import { stripSyncRecordMetadata } from './syncResponseShaping.js';
 
 export function register(server: McpServer, client: ProxyClient): void {
@@ -24,7 +24,12 @@ export function register(server: McpServer, client: ProxyClient): void {
       if (symbol) params.symbol = symbol;
       if (since) params.since = since;
       const res = await client.get('/sync/analysis-data', params) as any;
-      if (full && res != null) return { _skipSizeGuard: true, data: res };
+      // Strip camelCase / snake_case enum leaks (signal: 'strongSell',
+      // agreement: 'majority_buy', etc.) before either return path runs.
+      humanizeSignalsDeep(res);
+      if (full && res != null) {
+        return { _skipSizeGuard: true, data: res };
+      }
 
       if (res && Array.isArray(res.data)) {
         // Pass 1: flatten nested objects, preserving calibration/summary/bestValues

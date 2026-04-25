@@ -46,12 +46,47 @@ function compactGreeks(greeks: unknown): unknown {
   return out;
 }
 
+/** Humanize backend enum values like 'strongSell' → 'strong sell',
+ *  'majority_buy' → 'majority buy'. Handles both camelCase and snake_case.
+ *  Single-word values ('buy', 'sell', 'hold', 'mixed') pass through unchanged.
+ *  LLM clients surface these values as-is to end users, so the wire
+ *  representation needs to read like prose. */
+function humanizeSignal(signal: unknown): unknown {
+  if (typeof signal !== 'string' || !signal) return signal;
+  return signal
+    .replace(/_/g, ' ')              // snake_case → words
+    .replace(/([A-Z])/g, ' $1')      // camelCase → words
+    .toLowerCase()
+    .replace(/\s+/g, ' ')            // collapse double spaces from mixed case
+    .trim();
+}
+
+/** Walk a payload in place and humanize every `signal` and `agreement` string
+ *  field (FFT response carries both), leaving the rest of the structure
+ *  untouched. Used by the full=true / _skipSizeGuard path AND the default
+ *  compact path so neither shape of response leaks backend enum identifiers. */
+export function humanizeSignalsDeep(value: unknown, depth = 0): void {
+  if (depth > 8 || value == null || typeof value !== 'object') return;
+  if (Array.isArray(value)) {
+    for (const item of value) humanizeSignalsDeep(item, depth + 1);
+    return;
+  }
+  const obj = value as Record<string, unknown>;
+  for (const [key, child] of Object.entries(obj)) {
+    if ((key === 'signal' || key === 'agreement') && typeof child === 'string') {
+      obj[key] = humanizeSignal(child);
+    } else if (child !== null && typeof child === 'object') {
+      humanizeSignalsDeep(child, depth + 1);
+    }
+  }
+}
+
 function compactBestValueEntry(entry: unknown): unknown {
   if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return entry;
   const src = entry as Record<string, unknown>;
   const out: Record<string, unknown> = {};
   for (const key of BEST_VALUE_KEEP_KEYS) {
-    if (key in src) out[key] = src[key];
+    if (key in src) out[key] = key === 'signal' ? humanizeSignal(src[key]) : src[key];
   }
   return out;
 }
@@ -90,7 +125,7 @@ function compactPositions(positions: unknown): unknown {
           if ('price' in modelSrc) modelOut.price = modelSrc.price;
           // Signal-bearing fields an AI needs to understand model disagreement
           // — cheap to keep (~5 bytes/field) and core to the tool's purpose.
-          if ('signal' in modelSrc) modelOut.signal = modelSrc.signal;
+          if ('signal' in modelSrc) modelOut.signal = humanizeSignal(modelSrc.signal);
           if ('priceDiffPct' in modelSrc) modelOut.priceDiffPct = modelSrc.priceDiffPct;
           if ('greeks' in modelSrc) modelOut.greeks = compactGreeks(modelSrc.greeks);
           if ('error' in modelSrc && modelSrc.error) modelOut.error = modelSrc.error;
@@ -178,7 +213,7 @@ export function truncateArrays(obj: Record<string, unknown>, maxItems = 5, spot?
         showing: maxItems,
         total: v.length,
         truncated: true,
-        ...(isComparison ? { selection: 'strongest_signals' } : {}),
+        ...(isComparison ? { selection: 'strongest signals' } : {}),
       },
     };
   }

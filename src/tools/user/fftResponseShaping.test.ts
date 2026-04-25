@@ -6,6 +6,7 @@ import {
   shapeRecord,
   truncateRecord,
   trimToSizeBudget,
+  humanizeSignalsDeep,
   TRUNCATION_THRESHOLD,
   FFT_SAFE_SIZE_BUDGET,
   PRESERVE_KEYS,
@@ -167,7 +168,7 @@ describe('truncateArrays', () => {
     const result = obj.comparison as any;
     expect(result._count).toBe(6);
     expect(result._preview).toHaveLength(3);
-    expect(result._meta?.selection).toBe('strongest_signals');
+    expect(result._meta?.selection).toBe('strongest signals');
     // Unanimous entries should be picked first
     const strikes = result._preview.map((c: any) => c.strike);
     expect(strikes).toContain(350); // unanimous_buy
@@ -280,7 +281,7 @@ describe('shapeRecord', () => {
     // Signal-bearing fields preserved
     expect(bep.type).toBe('put');
     expect(bep.strike).toBe(660);
-    expect(bep.signal).toBe('strongBuy');
+    expect(bep.signal).toBe('strong buy');
     expect(bep.edge).toBe(1.2729);
     expect(bep.priceDiff).toBe(1.2879);
     expect(bep.priceDiffPct).toBe(26.47);
@@ -354,7 +355,7 @@ describe('shapeRecord', () => {
     const position = (record.data.positions as any)[0];
     const model = position.models[0];
     // Signal-bearing fields — MUST survive, the tool exists to surface these
-    expect(model.signal).toBe('weakSell');
+    expect(model.signal).toBe('weak sell');
     expect(model.priceDiffPct).toBe(-0.46);
     expect(model.model).toBe('blackScholes');
     expect(model.price).toBe(114.7333);
@@ -415,7 +416,7 @@ describe('truncateRecord', () => {
     const comp = record.details.comparison as any;
     expect(comp._count).toBe(200);
     expect(comp._preview).toHaveLength(5);
-    expect(comp._meta?.selection).toBe('strongest_signals');
+    expect(comp._meta?.selection).toBe('strongest signals');
   });
 
   test('passes spot from data to comparison selection', () => {
@@ -564,5 +565,50 @@ describe('trimToSizeBudget', () => {
     expect(FFT_SAFE_SIZE_BUDGET).toBe(48 * 1024);
     // Default budget should leave headroom below the 50 KB MCP hard limit
     expect(FFT_SAFE_SIZE_BUDGET).toBeLessThan(50 * 1024);
+  });
+});
+
+describe('humanizeSignalsDeep', () => {
+  test('humanizes camelCase signal values throughout a nested payload', () => {
+    const payload = {
+      data: [
+        {
+          symbol: 'TSLA',
+          bestValues: {
+            bestEdgePut: { signal: 'strongSell', strike: 370, edge: 0.28 },
+            bestEdgeCall: { signal: 'weakBuy', strike: 420 },
+          },
+          positions: [
+            {
+              strike: 380,
+              models: [
+                { model: 'blackScholes', signal: 'strongBuy', priceDiffPct: 1.2 },
+                { model: 'heston', signal: 'sell', priceDiffPct: -0.4 },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    humanizeSignalsDeep(payload);
+    expect(payload.data[0].bestValues.bestEdgePut.signal).toBe('strong sell');
+    expect(payload.data[0].bestValues.bestEdgeCall.signal).toBe('weak buy');
+    expect(payload.data[0].positions[0].models[0].signal).toBe('strong buy');
+    expect(payload.data[0].positions[0].models[1].signal).toBe('sell');
+  });
+
+  test('leaves non-signal fields untouched and is null/array safe', () => {
+    const payload = {
+      strike: 100,
+      models: [{ model: 'sabr', priceDiffPct: 0.3 }, null],
+      meta: { kind: 'fft' },
+    };
+    humanizeSignalsDeep(payload);
+    expect(payload.strike).toBe(100);
+    expect(payload.models[0]).toEqual({ model: 'sabr', priceDiffPct: 0.3 });
+    expect(payload.meta.kind).toBe('fft');
+    expect(() => humanizeSignalsDeep(null)).not.toThrow();
+    expect(() => humanizeSignalsDeep('string')).not.toThrow();
+    expect(() => humanizeSignalsDeep(42)).not.toThrow();
   });
 });

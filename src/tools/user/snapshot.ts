@@ -19,6 +19,28 @@ import {
  * tool. Each type keeps its own shaping, dedupe, and response shape.
  */
 
+const GEX_KEY_HUMANIZE: Record<string, string> = {
+  callWall: 'call wall',
+  putWall: 'put wall',
+  gammaFlip: 'gamma flip',
+  gammaTilt: 'gamma tilt',
+  secondaryFlips: 'secondary flips',
+};
+
+/** Rename camelCase wall/flip/tilt keys on a GEX record block to space-separated
+ *  equivalents so the LLM doesn't surface backend identifiers verbatim. Mutates
+ *  in place; only rewrites keys that appear in GEX_KEY_HUMANIZE. */
+function humanizeGexLevels(target: unknown): void {
+  if (!target || typeof target !== 'object' || Array.isArray(target)) return;
+  const obj = target as Record<string, unknown>;
+  for (const [k, humanK] of Object.entries(GEX_KEY_HUMANIZE)) {
+    if (k in obj) {
+      obj[humanK] = obj[k];
+      delete obj[k];
+    }
+  }
+}
+
 const SNAPSHOT_DESCRIPTION = `Get the user's synced snapshot history by type. Each type serves a different question:
 
 • type="gex" — per-symbol Gamma Exposure snapshots. REQUIRED: \`symbol\`. Returns the 3 most recent snapshots (no dedupe — rows may be near-duplicates if recorded back-to-back). Includes per-expiration breakdown, call/put walls, gamma flip point, unusual activity, and expected move data.
@@ -43,23 +65,37 @@ export function register(server: McpServer, client: ProxyClient): void {
       if (type === 'gex') {
         if (!symbol) throw new Error("type='gex' requires `symbol`");
         const res = await client.get('/sync/analysis-data', { type: 'gex', symbol, limit: String(limit) }) as any;
+        // Humanize wall/flip/tilt keys on every GEX record's data block (and the
+        // record root, defensively) before either default shaping OR full-mode
+        // raw return so backend identifiers (callWall, gammaFlip, etc.) don't
+        // surface verbatim in user-facing summaries.
+        if (res && Array.isArray(res.data)) {
+          for (const record of res.data) {
+            humanizeGexLevels(record);
+            if (record && typeof record === 'object' && record.data && typeof record.data === 'object') {
+              humanizeGexLevels(record.data);
+            }
+          }
+        }
         if (full && res != null) return { _skipSizeGuard: true, data: res };
-        // Details contain per-expiration arrays — strip those and keep summary
-        // Key GEX fields (gammaFlip, callWall, putWall) live on the summary record (record.data), not details
+        // Details contain per-expiration arrays — strip those and keep summary.
         if (res && Array.isArray(res.data)) {
           res.data = res.data.map((record: any) => {
             stripSyncRecordMetadata(record);
             if (record.details && typeof record.details === 'object') {
               const d = record.details;
               if (Array.isArray(d)) {
-                record.details = { _omitted: { expiration_breakdowns: d.length } };
+                record.details = { _omitted: [`expiration breakdowns (${d.length} items)`] };
               } else {
                 const summary: Record<string, unknown> = {};
                 const omittedKeys: string[] = [];
                 for (const [k, v] of Object.entries(d)) {
-                  if (Array.isArray(v)) { omittedKeys.push(k); } else { summary[k] = v; }
+                  if (Array.isArray(v)) {
+                    const human = k.replace(/([A-Z])/g, ' $1').toLowerCase().trim();
+                    omittedKeys.push(`${human} (${v.length} items)`);
+                  } else { summary[k] = v; }
                 }
-                if (omittedKeys.length) summary._omitted_keys = omittedKeys;
+                if (omittedKeys.length) summary._omitted = omittedKeys;
                 record.details = summary;
               }
             }

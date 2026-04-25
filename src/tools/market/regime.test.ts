@@ -119,7 +119,7 @@ describe('get_regime — GEX exposure hoist', () => {
     const parsed = JSON.parse(result.content[0].text);
     // shapeMarketRegimeResponse may rewrap, but exposures must be present somewhere
     expect(JSON.stringify(parsed)).toContain('netGamma');
-    expect(JSON.stringify(parsed)).toContain('callWall');
+    expect(JSON.stringify(parsed)).toContain('call wall');
   });
 
   test('scope=symbol hoists history[].vector._meta.gex and strips raw vector', async () => {

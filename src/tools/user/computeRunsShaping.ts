@@ -123,12 +123,36 @@ function shapeCalibrationSummary(value: unknown): Record<string, unknown> | unde
   return {
     rmse: round(calibration.rmse, 6),
     confidence: round(calibration.confidence, 4),
-    isFallback: calibration.isFallback === true,
+    // Replace the camelCase `isFallback` boolean with the single-word `fallback`,
+    // emitted only when the calibration actually fell back to defaults. Reads as
+    // prose ("the model is in fallback") instead of a code identifier. Internal
+    // priority/calibratedModels consumers read `fallback` below.
+    ...(calibration.isFallback === true ? { fallback: true } : {}),
     expirationDate: typeof calibration.expirationDate === 'string' ? calibration.expirationDate : undefined,
     executionPath: typeof calibration.executionPath === 'string' ? calibration.executionPath : undefined,
     params: compactCalibrationParams(calibration.params),
     warnings: getArray<string>(calibration.warnings).filter((warning) => typeof warning === 'string').slice(0, 5),
   };
+}
+
+/** Rename camelCase wall/flip/tilt keys to space-separated equivalents so the
+ *  LLM doesn't surface backend identifiers (callWall, gammaTilt, etc.) verbatim
+ *  in user-facing summaries. */
+function shapeKeyLevels(value: unknown): Record<string, unknown> | undefined {
+  const levels = getObject(value);
+  if (!levels) return undefined;
+  const KEY_MAP: Record<string, string> = {
+    callWall: 'call wall',
+    putWall: 'put wall',
+    gammaFlip: 'gamma flip',
+    gammaTilt: 'gamma tilt',
+    secondaryFlips: 'secondary flips',
+  };
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(levels)) {
+    out[KEY_MAP[k] ?? k] = v;
+  }
+  return out;
 }
 
 function getVariantPriority(value: unknown): number {
@@ -223,7 +247,9 @@ function getModelPriority(modelName: string, modelValue: Record<string, unknown>
   const price = modelValue.price;
   const greeks = getObject(modelValue.greeks);
 
-  if (calibration?.isFallback === false) score += 100;
+  // Non-fallback calibration: the `fallback` field is absent (we only emit it
+  // when isFallback === true), so absence here means a real calibration ran.
+  if (calibration && calibration.fallback !== true) score += 100;
   if (price !== undefined) score += 40;
   if (greeks && Object.keys(greeks).length > 0) score += 20;
 
@@ -269,7 +295,7 @@ function shapePosition(position: Record<string, unknown>, maxModels?: number): R
   const shapedModels = Object.fromEntries(limitedModelEntries);
 
   const calibratedModels = Object.entries(shapedModels)
-    .filter(([, modelValue]) => getObject(modelValue)?.calibrationSummary && getObject(getObject(modelValue)?.calibrationSummary)?.isFallback !== true)
+    .filter(([, modelValue]) => getObject(modelValue)?.calibrationSummary && getObject(getObject(modelValue)?.calibrationSummary)?.fallback !== true)
     .map(([modelName]) => modelName);
   const symbol = typeof position.symbol === 'string' && position.symbol.trim().length > 0
     ? position.symbol
@@ -304,7 +330,7 @@ function shapeExposureSweep(value: unknown): Array<Record<string, unknown>> | un
       underlying: normalizeUnderlying(entry.underlying),
       spot: round(entry.spot, 4),
       strikeCount: typeof entry.strikeCount === 'number' ? entry.strikeCount : undefined,
-      keyLevels: getObject(entry.keyLevels) ?? undefined,
+      keyLevels: shapeKeyLevels(entry.keyLevels),
       timestamp: asTimestamp(entry.timestamp),
       at: toIso(entry.timestamp),
     }));

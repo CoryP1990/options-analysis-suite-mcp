@@ -21,7 +21,7 @@ describe('summarizeThresholdHistory', () => {
     }, checkedDates, 3) as Record<string, any>;
 
     expect(summarized.symbol).toBe('AMC');
-    expect(summarized.status).toBe('currently_on_threshold');
+    expect(summarized.status).toBe('Currently on threshold list');
     expect(summarized.summary.isCurrentlyOnThreshold).toBe(true);
     expect(summarized.summary.currentStreakDays).toBe(4);
     expect(summarized.summary.longestStreakDays).toBe(4);
@@ -49,7 +49,7 @@ describe('summarizeThresholdHistory', () => {
       datesOnThreshold: 2,
     }, checkedDates) as Record<string, any>;
 
-    expect(summarized.status).toBe('recently_cleared');
+    expect(summarized.status).toBe('Recently cleared');
     expect(summarized.summary.isCurrentlyOnThreshold).toBe(false);
     expect(summarized.summary.currentStreakDays).toBe(0);
     expect(summarized.summary.longestStreakDays).toBe(2);
@@ -73,7 +73,7 @@ describe('summarizeThresholdHistory', () => {
       source: 'supabase',
     }, checkedDates) as Record<string, any>;
 
-    expect(summarized.status).toBe('not_on_threshold');
+    expect(summarized.status).toBe('Not on threshold list');
     expect(summarized.summary.isCurrentlyOnThreshold).toBe(false);
     expect(summarized.summary.currentStreakDays).toBe(0);
     expect(summarized.summary.longestStreakDays).toBe(0);

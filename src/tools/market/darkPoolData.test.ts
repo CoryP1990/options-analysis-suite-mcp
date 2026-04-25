@@ -19,7 +19,7 @@ function createHarness(stubByPath: Record<string, unknown | null> = {}) {
 
   const captured: { handler: ToolHandler | null } = { handler: null };
   const fakeServer = {
-    tool: (_name: string, _desc: string, _schema: unknown, handler: ToolHandler) => {
+    registerTool: (_name: string, _config: unknown, handler: ToolHandler) => {
       captured.handler = handler;
     },
   } as unknown as McpServer;
@@ -176,7 +176,7 @@ describe('get_dark_pool_data — view=all', () => {
 
     const captured: { handler: ToolHandler | null } = { handler: null };
     const fakeServer = {
-      tool: (_n: string, _d: string, _s: unknown, h: ToolHandler) => { captured.handler = h; },
+      registerTool: (_n: string, _config: unknown, h: ToolHandler) => { captured.handler = h; },
     } as unknown as McpServer;
     register(fakeServer, failingClient);
     if (!captured.handler) throw new Error('handler not captured');
