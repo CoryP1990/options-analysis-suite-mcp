@@ -14,7 +14,7 @@ describe('annotateRiskFreeRate', () => {
 
     expect(shaped.maturity).toBe('10Y');
     expect(shaped._rate_note).toBe(
-      'Current risk-free-rate endpoint returns the platform-wide 10Y Treasury benchmark. Use get_yield_curve for shorter maturities such as 1M or 3M.',
+      'Current risk-free-rate endpoint returns the platform-wide 10Y Treasury benchmark. Use get_rates with view="curve" for shorter maturities such as 1M or 3M.',
     );
   });
 

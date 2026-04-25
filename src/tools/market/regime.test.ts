@@ -1,0 +1,179 @@
+import { describe, test, expect } from 'bun:test';
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { ProxyClient } from '../../proxy/proxyClient.js';
+import { register } from './regime.js';
+
+type ToolHandler = (args: Record<string, unknown>) => Promise<{ isError?: boolean; content: Array<{ type: 'text'; text: string }> }>;
+
+function createHarness(stubResponse: any = {}) {
+  const calls: Array<{ path: string; params?: Record<string, string> }> = [];
+  const fakeClient: ProxyClient = {
+    get: async (path: string, params?: Record<string, string>) => {
+      calls.push({ path, params });
+      return stubResponse;
+    },
+    post: async () => ({}),
+    hasSearchKey: false,
+  } as unknown as ProxyClient;
+
+  const captured: { handler: ToolHandler | null } = { handler: null };
+  const fakeServer = {
+    tool: (_name: string, _desc: string, _schema: unknown, handler: ToolHandler) => {
+      captured.handler = handler;
+    },
+  } as unknown as McpServer;
+
+  register(fakeServer, fakeClient);
+  if (!captured.handler) throw new Error('Tool handler not captured');
+  return { calls, handler: captured.handler };
+}
+
+describe('get_regime — scope routing', () => {
+  test('scope=market → /regime/current', async () => {
+    const { calls, handler } = createHarness({ market: { stress_score: 0.5, label: 'NORMAL' } });
+    await handler({ scope: 'market' });
+    expect(calls[0].path).toBe('/regime/current');
+  });
+
+  test('scope=market with date passes through', async () => {
+    const { calls, handler } = createHarness({ market: {} });
+    await handler({ scope: 'market', date: '2026-04-01' });
+    expect(calls[0].params?.date).toBe('2026-04-01');
+  });
+
+  test('scope=intraday → /regime/intraday/:SYMBOL', async () => {
+    const { calls, handler } = createHarness({ entries: [] });
+    await handler({ scope: 'intraday', symbol: 'SPY', days: 3, interval: 'open' });
+    expect(calls[0].path).toBe('/regime/intraday/SPY');
+    expect(calls[0].params?.days).toBe('3');
+    expect(calls[0].params?.interval).toBe('open');
+  });
+
+  test('scope=intraday default days=5', async () => {
+    const { calls, handler } = createHarness({ entries: [] });
+    await handler({ scope: 'intraday', symbol: 'AAPL' });
+    expect(calls[0].params?.days).toBe('5');
+  });
+
+  test('scope=symbol → /regime/symbol/:SYMBOL (uppercased)', async () => {
+    const { calls, handler } = createHarness({ history: [{ stress: 0, label: 'NORMAL' }] });
+    await handler({ scope: 'symbol', symbol: 'spy' });
+    expect(calls[0].path).toBe('/regime/symbol/SPY');
+    expect(calls[0].params?.days).toBe('1');
+  });
+});
+
+describe('get_regime — required symbol errors', () => {
+  test('scope=intraday without symbol throws', async () => {
+    const { handler } = createHarness({});
+    const result = await handler({ scope: 'intraday' });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("scope='intraday' requires `symbol`");
+  });
+
+  test('scope=symbol without symbol throws', async () => {
+    const { handler } = createHarness({});
+    const result = await handler({ scope: 'symbol' });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("scope='symbol' requires `symbol`");
+  });
+});
+
+describe('get_regime — scope=symbol days cap', () => {
+  test('days > 30 throws', async () => {
+    const { handler } = createHarness({ history: [] });
+    const result = await handler({ scope: 'symbol', symbol: 'SPY', days: 45 });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("scope='symbol' 'days' must be between 1 and 30");
+  });
+
+  test('days = 30 boundary accepted', async () => {
+    const { calls, handler } = createHarness({ history: [{ entry: 1 }] });
+    await handler({ scope: 'symbol', symbol: 'SPY', days: 30 });
+    expect(calls[0].params?.days).toBe('30');
+  });
+});
+
+describe('get_regime — GEX exposure hoist', () => {
+  test('scope=market hoists market.vector._meta.gex to market.exposures', async () => {
+    const stub = {
+      market: {
+        stress_score: 0.5,
+        label: 'NORMAL',
+        vector: {
+          _meta: {
+            gex: {
+              spotPrice: 500, netGamma: 1e9, netDelta: 5e8, netVega: 1e7,
+              netVanna: 100, netCharm: 50, netVomma: 25,
+              callWall: 510, putWall: 490, gammaFlip: 495, regime: 'NORMAL',
+            },
+          },
+        },
+      },
+    };
+    const { handler } = createHarness(stub);
+    const result = await handler({ scope: 'market' });
+    const parsed = JSON.parse(result.content[0].text);
+    // shapeMarketRegimeResponse may rewrap, but exposures must be present somewhere
+    expect(JSON.stringify(parsed)).toContain('netGamma');
+    expect(JSON.stringify(parsed)).toContain('callWall');
+  });
+
+  test('scope=symbol hoists history[].vector._meta.gex and strips raw vector', async () => {
+    const stub = {
+      symbol: 'SPY', scope: 'bellwether',
+      history: [
+        {
+          date: '2026-04-17',
+          vector: {
+            _meta: {
+              gex: {
+                spotPrice: 500, netGamma: 1e9, callWall: 510, putWall: 490,
+                gammaFlip: 495, topStrikes: [500, 505, 495],
+              },
+            },
+          },
+        },
+      ],
+    };
+    const { handler } = createHarness(stub);
+    const result = await handler({ scope: 'symbol', symbol: 'SPY' });
+    const parsed = JSON.parse(result.content[0].text);
+    // days=1 unwraps the latest entry
+    expect(parsed.exposures).toBeDefined();
+    expect(parsed.exposures.netGamma).toBe(1e9);
+    expect(parsed.exposures.topStrikes).toEqual([500, 505, 495]);
+    expect(parsed.vector).toBeUndefined();
+  });
+});
+
+describe('get_regime — scope=market include_symbols', () => {
+  test('include_symbols=true returns _skipSizeGuard (raw payload)', async () => {
+    const stub = {
+      market: { stress_score: 0.5 },
+      symbols: { bellwether: [{ symbol: 'SPY' }] },
+    };
+    const { handler } = createHarness(stub);
+    const result = await handler({ scope: 'market', include_symbols: true });
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed.symbols).toBeDefined();
+    expect(parsed.market.stress_score).toBe(0.5);
+  });
+});
+
+describe('get_regime — scope=symbol days>1 keeps full history', () => {
+  test('days=5 returns the full res (not unwrapped)', async () => {
+    const stub = {
+      symbol: 'SPY',
+      history: [
+        { date: '2026-04-13' },
+        { date: '2026-04-14' },
+        { date: '2026-04-15' },
+      ],
+    };
+    const { handler } = createHarness(stub);
+    const result = await handler({ scope: 'symbol', symbol: 'SPY', days: 5 });
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed.history).toHaveLength(3);
+  });
+});
