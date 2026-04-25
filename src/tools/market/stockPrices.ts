@@ -5,12 +5,16 @@ import { toolHandler } from '../helpers.js';
 import { summarizeStockPrices } from './stockPriceShaping.js';
 
 export function register(server: McpServer, client: ProxyClient): void {
-  server.tool(
+  server.registerTool(
     'get_stock_prices',
-    'Get historical OHLCV price data for a stock or ETF with a compact trend summary plus the requested daily bars.',
     {
-      symbol: z.string().describe('Ticker symbol (e.g., AAPL, SPY)'),
-      days: z.number().int().min(1).max(60).default(30).describe('Number of trading days (default 30, max 60)'),
+      title: 'Stock Prices',
+      description: 'Get historical OHLCV price data for a stock or ETF with a compact trend summary plus the requested daily bars.',
+      inputSchema: {
+        symbol: z.string().describe('Ticker symbol (e.g., AAPL, SPY)'),
+        days: z.number().int().min(1).max(60).default(30).describe('Number of trading days (default 30, max 60)'),
+      },
+      annotations: { readOnlyHint: true, openWorldHint: true },
     },
     toolHandler(async ({ symbol, days }) => {
       const res = await client.get('/stock-prices', {

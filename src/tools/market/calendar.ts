@@ -26,17 +26,21 @@ const CALENDAR_DESCRIPTION = `Get market calendar events by type. Each type has 
 Irrelevant sub-params are ignored (e.g. country on type=ipo, full on type=dividend).`;
 
 export function register(server: McpServer, client: ProxyClient): void {
-  server.tool(
+  server.registerTool(
     'get_market_calendar',
-    CALENDAR_DESCRIPTION,
     {
-      type: z.enum(['economic', 'ipo', 'dividend', 'split']).describe('Which calendar to fetch.'),
-      from: z.string().optional().describe('Start date (YYYY-MM-DD). Type-specific defaults apply when omitted.'),
-      to: z.string().optional().describe('End date (YYYY-MM-DD). Type-specific defaults apply when omitted.'),
-      limit: z.number().int().min(1).max(200).optional().describe('For ipo/dividend/split: max rows to return (default varies by type). Economic has no row cap — use date range to narrow.'),
-      country: z.string().optional().describe('For economic only: ISO-2 country filter (US, EU, UK, etc.).'),
-      symbol: z.string().optional().describe('For ipo/dividend/split only: ticker filter applied after fetch.'),
-      full: z.boolean().optional().describe('For economic only: bypass the catalyst-focused summary and return the raw feed.'),
+      title: 'Market Calendar',
+      description: CALENDAR_DESCRIPTION,
+      inputSchema: {
+        type: z.enum(['economic', 'ipo', 'dividend', 'split']).describe('Which calendar to fetch.'),
+        from: z.string().optional().describe('Start date (YYYY-MM-DD). Type-specific defaults apply when omitted.'),
+        to: z.string().optional().describe('End date (YYYY-MM-DD). Type-specific defaults apply when omitted.'),
+        limit: z.number().int().min(1).max(200).optional().describe('For ipo/dividend/split: max rows to return (default varies by type). Economic has no row cap — use date range to narrow.'),
+        country: z.string().optional().describe('For economic only: ISO-2 country filter (US, EU, UK, etc.).'),
+        symbol: z.string().optional().describe('For ipo/dividend/split only: ticker filter applied after fetch.'),
+        full: z.boolean().optional().describe('For economic only: bypass the catalyst-focused summary and return the raw feed.'),
+      },
+      annotations: { readOnlyHint: true, openWorldHint: true },
     },
     toolHandler(async ({ type, from, to, limit, country, symbol, full }) => {
       if (type === 'economic') {

@@ -5,12 +5,16 @@ import { toolHandler } from '../helpers.js';
 import { summarizeSymbolTradingHalts, summarizeTradingHalts } from './tradingHaltsShaping.js';
 
 export function register(server: McpServer, client: ProxyClient): void {
-  server.tool(
+  server.registerTool(
     'get_trading_halts',
-    'Get current and recent trading halts. Default view condenses duplicate feed rows, prioritizes the latest active halt state, and highlights material recent news/regulatory events. full=true returns the raw halt tape.',
     {
-      symbol: z.string().optional().describe('Ticker symbol (optional — omit for all current halts)'),
-      full: z.boolean().optional().describe('Return the raw halt feed instead of the compact active/recent summary. Default false.'),
+      title: 'Trading Halts',
+      description: 'Get current and recent trading halts. Default view condenses duplicate feed rows, prioritizes the latest active halt state, and highlights material recent news/regulatory events. full=true returns the raw halt tape.',
+      inputSchema: {
+        symbol: z.string().optional().describe('Ticker symbol (optional — omit for all current halts)'),
+        full: z.boolean().optional().describe('Return the raw halt feed instead of the compact active/recent summary. Default false.'),
+      },
+      annotations: { readOnlyHint: true, openWorldHint: true },
     },
     toolHandler(async ({ symbol, full }) => {
       if (symbol) {

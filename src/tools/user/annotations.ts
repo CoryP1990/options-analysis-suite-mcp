@@ -6,12 +6,16 @@ import { stripSyncRecordMetadata } from './syncResponseShaping.js';
 import { shapeAnnotationsResponse } from './annotationsShaping.js';
 
 export function register(server: McpServer, client: ProxyClient): void {
-  server.tool(
+  server.registerTool(
     'get_user_annotations',
-    'Get the user\'s research notes, tags, and alerts. These are personal annotations the user has attached to specific symbols or analyses.',
     {
-      symbol: z.string().optional().describe('Filter by ticker symbol'),
-      limit: z.number().int().min(1).max(100).default(20).describe('Max annotations (default 20)'),
+      title: 'User Annotations',
+      description: 'Get the user\'s research notes, tags, and alerts. These are personal annotations the user has attached to specific symbols or analyses.',
+      inputSchema: {
+        symbol: z.string().optional().describe('Filter by ticker symbol'),
+        limit: z.number().int().min(1).max(100).default(20).describe('Max annotations (default 20)'),
+      },
+      annotations: { readOnlyHint: true, openWorldHint: true },
     },
     toolHandler(async ({ symbol, limit }) => {
       const params: Record<string, string> = { type: 'annotations', limit: String(limit) };

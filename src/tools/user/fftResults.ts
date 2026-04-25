@@ -6,14 +6,18 @@ import { TRUNCATION_THRESHOLD, shapeRecord, truncateRecord, trimToSizeBudget } f
 import { stripSyncRecordMetadata } from './syncResponseShaping.js';
 
 export function register(server: McpServer, client: ProxyClient): void {
-  server.tool(
+  server.registerTool(
     'get_fft_results',
-    'Get the user\'s FFT (Fast Fourier Transform) scanner results — characteristic function-based option pricing signals across multiple models and expirations. Shows which models detected opportunities, calibration quality, and pricing anomalies.',
     {
-      symbol: z.string().optional().describe('Filter by ticker symbol'),
-      limit: z.number().int().min(1).max(50).default(10).describe('Max results (default 10)'),
-      since: z.string().optional().describe('Only results after this date (ISO format)'),
-      full: z.boolean().default(false).describe('Return full untrimmed data including nested model outputs and calibration parameters'),
+      title: 'FFT Scanner Results',
+      description: 'Get the user\'s FFT (Fast Fourier Transform) scanner results — characteristic function-based option pricing signals across multiple models and expirations. Shows which models detected opportunities, calibration quality, and pricing anomalies.',
+      inputSchema: {
+        symbol: z.string().optional().describe('Filter by ticker symbol'),
+        limit: z.number().int().min(1).max(50).default(10).describe('Max results (default 10)'),
+        since: z.string().optional().describe('Only results after this date (ISO format)'),
+        full: z.boolean().default(false).describe('Return full untrimmed data including nested model outputs and calibration parameters'),
+      },
+      annotations: { readOnlyHint: true, openWorldHint: true },
     },
     toolHandler(async ({ symbol, limit, since, full }) => {
       const params: Record<string, string> = { type: 'fft', limit: String(limit) };

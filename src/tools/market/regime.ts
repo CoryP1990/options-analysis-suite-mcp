@@ -34,17 +34,21 @@ function hoistExposures(entry: any): any {
 }
 
 export function register(server: McpServer, client: ProxyClient): void {
-  server.tool(
+  server.registerTool(
     'get_regime',
-    REGIME_DESCRIPTION,
     {
-      scope: z.enum(['market', 'symbol', 'intraday']).describe('Which regime view to fetch.'),
-      symbol: z.string().optional().describe('Required for scope=symbol or scope=intraday.'),
-      date: z.string().optional().describe('Specific date (YYYY-MM-DD). For scope=market: default is latest. For scope=intraday: overrides `days`.'),
-      days: z.number().int().min(1).max(90).optional().describe('For scope=symbol: history days (default 1, max 30). For scope=intraday: history days (default 5, max 90).'),
-      interval: z.string().optional().describe('For scope=intraday only: filter to open | morning | midday | afternoon | pre-close.'),
-      include_symbols: z.boolean().optional().describe('For scope=market only: include all 124 per-symbol breakdowns (~180KB). Default false.'),
-      full: z.boolean().optional().describe('For scope=symbol only: keep raw vector for multi-day requests. Default false.'),
+      title: 'Market Regime',
+      description: REGIME_DESCRIPTION,
+      inputSchema: {
+        scope: z.enum(['market', 'symbol', 'intraday']).describe('Which regime view to fetch.'),
+        symbol: z.string().optional().describe('Required for scope=symbol or scope=intraday.'),
+        date: z.string().optional().describe('Specific date (YYYY-MM-DD). For scope=market: default is latest. For scope=intraday: overrides `days`.'),
+        days: z.number().int().min(1).max(90).optional().describe('For scope=symbol: history days (default 1, max 30). For scope=intraday: history days (default 5, max 90).'),
+        interval: z.string().optional().describe('For scope=intraday only: filter to open | morning | midday | afternoon | pre-close.'),
+        include_symbols: z.boolean().optional().describe('For scope=market only: include all 124 per-symbol breakdowns (~180KB). Default false.'),
+        full: z.boolean().optional().describe('For scope=symbol only: keep raw vector for multi-day requests. Default false.'),
+      },
+      annotations: { readOnlyHint: true, openWorldHint: true },
     },
     toolHandler(async ({ scope, symbol, date, days, interval, include_symbols, full }) => {
       if (scope === 'market') {

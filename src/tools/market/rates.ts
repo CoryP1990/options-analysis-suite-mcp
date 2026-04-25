@@ -17,13 +17,17 @@ const RATES_DESCRIPTION = `Get Treasury rate data. Pick the view that matches th
 • view="curve" — full US Treasury yield curve with a compact current-curve summary by default. Returns key maturities, inversion flags, spreads, and small trend samples. Accepts \`weeks\` (1..52, default 12) for trend-context sampling and \`full\` to return the raw curve payload with historical observations.`;
 
 export function register(server: McpServer, client: ProxyClient): void {
-  server.tool(
+  server.registerTool(
     'get_rates',
-    RATES_DESCRIPTION,
     {
-      view: z.enum(['benchmark', 'curve']).describe('Which Treasury view to fetch.'),
-      weeks: z.number().int().min(1).max(52).optional().describe('Only for view=curve: history weeks for trend context (default 12).'),
-      full: z.boolean().optional().describe('Only for view=curve: return the raw curve payload with historical observations.'),
+      title: 'Treasury Rates',
+      description: RATES_DESCRIPTION,
+      inputSchema: {
+        view: z.enum(['benchmark', 'curve']).describe('Which Treasury view to fetch.'),
+        weeks: z.number().int().min(1).max(52).optional().describe('Only for view=curve: history weeks for trend context (default 12).'),
+        full: z.boolean().optional().describe('Only for view=curve: return the raw curve payload with historical observations.'),
+      },
+      annotations: { readOnlyHint: true, openWorldHint: true },
     },
     toolHandler(async ({ view, weeks, full }) => {
       if (view === 'benchmark') {

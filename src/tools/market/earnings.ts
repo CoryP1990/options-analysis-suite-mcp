@@ -5,11 +5,15 @@ import { toolHandler } from '../helpers.js';
 import { summarizeEarnings } from './earningsShaping.js';
 
 export function register(server: McpServer, client: ProxyClient): void {
-  server.tool(
+  server.registerTool(
     'get_earnings',
-    'Get earnings history and estimates for a company. Returns actual EPS, estimates, revenue, and surprise percentages. Earnings events are the largest source of overnight gap risk for options — check if an upcoming earnings date falls within an option\'s expiration window. Shows last 8 quarters by default.',
     {
-      symbol: z.string().describe('Ticker symbol'),
+      title: 'Earnings',
+      description: 'Get earnings history and estimates for a company. Returns actual EPS, estimates, revenue, and surprise percentages. Earnings events are the largest source of overnight gap risk for options — check if an upcoming earnings date falls within an option\'s expiration window. Shows last 8 quarters by default.',
+      inputSchema: {
+        symbol: z.string().describe('Ticker symbol'),
+      },
+      annotations: { readOnlyHint: true, openWorldHint: true },
     },
     toolHandler(async ({ symbol }) => {
       const res = await client.get(`/earnings/${encodeURIComponent(symbol.toUpperCase())}`) as any;

@@ -5,13 +5,17 @@ import { toolHandler } from '../helpers.js';
 import { shouldSummarizeIvHistory, summarizeIvHistory, trimIvHistoryToRecent } from './ivHistoryShaping.js';
 
 export function register(server: McpServer, client: ProxyClient): void {
-  server.tool(
+  server.registerTool(
     'get_iv_history',
-    'Get historical implied volatility (IV) and historical volatility (HV) for a stock or ETF. Shows how option-implied expected moves and realized moves have evolved. High IV relative to HV suggests options are expensive; low IV relative to HV suggests options are cheap. Large windows return a compact recent/trend summary by default; use full=true for the raw history.',
     {
-      symbol: z.string().describe('Ticker symbol (e.g., AAPL, SPY)'),
-      days: z.number().int().min(1).max(1095).default(90).describe('Days of history (default 90). The default 90-day view returns the 30 most recent entries; larger windows may be summarized unless full=true.'),
-      full: z.boolean().optional().describe('Return the full raw IV history and bypass the response size guard.'),
+      title: 'IV History',
+      description: 'Get historical implied volatility (IV) and historical volatility (HV) for a stock or ETF. Shows how option-implied expected moves and realized moves have evolved. High IV relative to HV suggests options are expensive; low IV relative to HV suggests options are cheap. Large windows return a compact recent/trend summary by default; use full=true for the raw history.',
+      inputSchema: {
+        symbol: z.string().describe('Ticker symbol (e.g., AAPL, SPY)'),
+        days: z.number().int().min(1).max(1095).default(90).describe('Days of history (default 90). The default 90-day view returns the 30 most recent entries; larger windows may be summarized unless full=true.'),
+        full: z.boolean().optional().describe('Return the full raw IV history and bypass the response size guard.'),
+      },
+      annotations: { readOnlyHint: true, openWorldHint: true },
     },
     toolHandler(async ({ symbol, days, full }) => {
       const res = await client.get('/scanner/history', { symbol: symbol.toUpperCase(), days: String(days) }) as any;

@@ -52,12 +52,16 @@ const PLATFORM_INFO: Record<string, string> = {
 };
 
 export function registerPlatformInfo(server: McpServer): void {
-  server.tool(
+  server.registerTool(
     'get_platform_info',
-    'Get background information about the Options Analysis Suite platform — available pricing models, what the Greeks mean, data sources, and capabilities. Call this when you need context about the platform to give better answers.',
     {
-      topic: z.enum(['models', 'greeks', 'data_sources', 'capabilities', 'all']).default('all')
-        .describe('Which topic to get info about'),
+      title: 'Platform Info',
+      description: 'Get background information about the Options Analysis Suite platform — available pricing models, what the Greeks mean, data sources, and capabilities. Call this when you need context about the platform to give better answers.',
+      inputSchema: {
+        topic: z.enum(['models', 'greeks', 'data_sources', 'capabilities', 'all']).default('all')
+          .describe('Which topic to get info about'),
+      },
+      annotations: { readOnlyHint: true, openWorldHint: false },
     },
     async ({ topic }) => {
       if (topic === 'all') {

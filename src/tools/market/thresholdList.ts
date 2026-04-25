@@ -5,13 +5,17 @@ import { toolHandler } from '../helpers.js';
 import { summarizeThresholdHistory } from './thresholdHistoryShaping.js';
 
 export function register(server: McpServer, client: ProxyClient): void {
-  server.tool(
+  server.registerTool(
     'get_threshold_history',
-    'Get SEC Regulation SHO threshold-list history for a symbol with a compact status summary by default. Highlights whether the symbol is currently on the list, recently cleared, or only appeared historically in the requested window. Use full=true for the raw date list.',
     {
-      symbol: z.string().describe('Ticker symbol'),
-      days: z.number().int().min(1).max(90).default(30).describe('Number of days to check (default 30, max 90)'),
-      full: z.boolean().optional().describe('Return the raw threshold-history payload instead of the compact summary.'),
+      title: 'Threshold List History',
+      description: 'Get SEC Regulation SHO threshold-list history for a symbol with a compact status summary by default. Highlights whether the symbol is currently on the list, recently cleared, or only appeared historically in the requested window. Use full=true for the raw date list.',
+      inputSchema: {
+        symbol: z.string().describe('Ticker symbol'),
+        days: z.number().int().min(1).max(90).default(30).describe('Number of days to check (default 30, max 90)'),
+        full: z.boolean().optional().describe('Return the raw threshold-history payload instead of the compact summary.'),
+      },
+      annotations: { readOnlyHint: true, openWorldHint: true },
     },
     toolHandler(async ({ symbol, days, full }) => {
       // Backend requires comma-separated dates. Generate last N trading days (skip weekends).

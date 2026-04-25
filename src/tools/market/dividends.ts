@@ -5,12 +5,16 @@ import { toolHandler } from '../helpers.js';
 import { shapeDividendHistory } from './corporateActionsShaping.js';
 
 export function register(server: McpServer, client: ProxyClient): void {
-  server.tool(
+  server.registerTool(
     'get_dividends',
-    'Get per-symbol dividend history from Financial Modeling Prep data synced into the platform. Useful for checking dividend cadence, recent ex-dates, and cash amounts when evaluating carry, assignment risk, or discrete-dividend assumptions.',
     {
-      symbol: z.string().describe('Ticker symbol (e.g., AAPL, MSFT)'),
-      limit: z.number().int().min(1).max(100).default(20).describe('Maximum number of dividend records to return (default 20, max 100).'),
+      title: 'Dividends',
+      description: 'Get per-symbol dividend history from Financial Modeling Prep data synced into the platform. Useful for checking dividend cadence, recent ex-dates, and cash amounts when evaluating carry, assignment risk, or discrete-dividend assumptions.',
+      inputSchema: {
+        symbol: z.string().describe('Ticker symbol (e.g., AAPL, MSFT)'),
+        limit: z.number().int().min(1).max(100).default(20).describe('Maximum number of dividend records to return (default 20, max 100).'),
+      },
+      annotations: { readOnlyHint: true, openWorldHint: true },
     },
     toolHandler(async ({ symbol, limit }) => {
       const upperSymbol = encodeURIComponent(symbol.toUpperCase());

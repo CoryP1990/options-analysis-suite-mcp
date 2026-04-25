@@ -5,12 +5,16 @@ import { toolHandler } from '../helpers.js';
 import { summarizeFundamentals } from './fundamentalsShaping.js';
 
 export function register(server: McpServer, client: ProxyClient): void {
-  server.tool(
+  server.registerTool(
     'get_fundamentals',
-    'Get company fundamentals: market cap, P/E ratio, EPS, revenue, profit margins, dividend yield, beta, sector, and industry. Useful for assessing whether an options strategy aligns with the fundamental picture. Default response returns compact company metadata, curated TTM ratios/key metrics, and one summarized recent statement entry per financial statement. Use full=true to include the raw financial statements payload.',
     {
-      symbol: z.string().describe('Ticker symbol'),
-      full: z.boolean().optional().describe('Include the full raw financial statements payload (annual + quarterly). Default false returns a compact fundamentals summary.'),
+      title: 'Fundamentals',
+      description: 'Get company fundamentals: market cap, P/E ratio, EPS, revenue, profit margins, dividend yield, beta, sector, and industry. Useful for assessing whether an options strategy aligns with the fundamental picture. Default response returns compact company metadata, curated TTM ratios/key metrics, and one summarized recent statement entry per financial statement. Use full=true to include the raw financial statements payload.',
+      inputSchema: {
+        symbol: z.string().describe('Ticker symbol'),
+        full: z.boolean().optional().describe('Include the full raw financial statements payload (annual + quarterly). Default false returns a compact fundamentals summary.'),
+      },
+      annotations: { readOnlyHint: true, openWorldHint: true },
     },
     toolHandler(async ({ symbol, full }) => {
       const upperSymbol = encodeURIComponent(symbol.toUpperCase());

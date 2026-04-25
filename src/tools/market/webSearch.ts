@@ -4,13 +4,17 @@ import type { ProxyClient } from '../../proxy/proxyClient.js';
 import { toolHandler } from '../helpers.js';
 
 export function register(server: McpServer, client: ProxyClient): void {
-  server.tool(
+  server.registerTool(
     'web_search',
-    'Search the web for real-time financial information, news, and analysis. Use when you need current information not in the platform\'s database — breaking news, analyst opinions, macro developments. Requires the user to have configured a Brave Search API key.',
     {
-      query: z.string().describe('Search query'),
-      count: z.number().int().min(1).max(20).default(8).describe('Number of results'),
-      freshness: z.enum(['pw', 'pm', 'py']).default('pw').describe('Recency: pw=past week, pm=past month, py=past year'),
+      title: 'Web Search',
+      description: 'Search the web for real-time financial information, news, and analysis. Use when you need current information not in the platform\'s database — breaking news, analyst opinions, macro developments. Requires the user to have configured a Brave Search API key.',
+      inputSchema: {
+        query: z.string().describe('Search query'),
+        count: z.number().int().min(1).max(20).default(8).describe('Number of results'),
+        freshness: z.enum(['pw', 'pm', 'py']).default('pw').describe('Recency: pw=past week, pm=past month, py=past year'),
+      },
+      annotations: { readOnlyHint: true, openWorldHint: true },
     },
     async ({ query, count, freshness }) => {
       if (!client.hasSearchKey) {

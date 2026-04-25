@@ -5,18 +5,22 @@ import { toolHandler } from '../helpers.js';
 import { recordMatchesComputeFilters, summarizeComputeRunsResponse } from './computeRunsShaping.js';
 
 export function register(server: McpServer, client: ProxyClient): void {
-  server.tool(
+  server.registerTool(
     'get_compute_runs',
-    'Get the user\'s AI Compute Suite run history — portfolio-wide batch analyses across multiple pricing models. Default response returns compact run summaries, model-dispersion highlights, exposure key levels, and representative position/model outputs. Use full=true for the raw synced run records.',
     {
-      run_key: z.string().optional().describe('Exact run key for one specific compute run'),
-      status: z.enum(['running', 'completed', 'cancelled', 'failed']).optional().describe('Filter by run status'),
-      scope: z.enum(['core', 'full']).optional().describe('Filter by compute scope'),
-      quality: z.enum(['balanced', 'precise']).optional().describe('Filter by compute quality'),
-      underlying: z.string().optional().describe('Only runs containing this underlying symbol'),
-      limit: z.number().int().min(1).max(50).default(5).describe('Max runs to return (default 5)'),
-      since: z.string().optional().describe('Only runs after this date (ISO format)'),
-      full: z.boolean().default(false).describe('Return the raw synced compute-run rows instead of the compact assistant view'),
+      title: 'AI Compute Suite Runs',
+      description: 'Get the user\'s AI Compute Suite run history — portfolio-wide batch analyses across multiple pricing models. Default response returns compact run summaries, model-dispersion highlights, exposure key levels, and representative position/model outputs. Use full=true for the raw synced run records.',
+      inputSchema: {
+        run_key: z.string().optional().describe('Exact run key for one specific compute run'),
+        status: z.enum(['running', 'completed', 'cancelled', 'failed']).optional().describe('Filter by run status'),
+        scope: z.enum(['core', 'full']).optional().describe('Filter by compute scope'),
+        quality: z.enum(['balanced', 'precise']).optional().describe('Filter by compute quality'),
+        underlying: z.string().optional().describe('Only runs containing this underlying symbol'),
+        limit: z.number().int().min(1).max(50).default(5).describe('Max runs to return (default 5)'),
+        since: z.string().optional().describe('Only runs after this date (ISO format)'),
+        full: z.boolean().default(false).describe('Return the raw synced compute-run rows instead of the compact assistant view'),
+      },
+      annotations: { readOnlyHint: true, openWorldHint: true },
     },
     toolHandler(async ({ run_key, status, scope, quality, underlying, limit, since, full }) => {
       const fetchLimit = run_key ? 200 : full ? Math.min(limit, 50) : Math.min(limit * 5, 200);

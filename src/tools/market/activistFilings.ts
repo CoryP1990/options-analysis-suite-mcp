@@ -5,12 +5,16 @@ import { toolHandler } from '../helpers.js';
 import { shapeActivistFilingsResponse } from './activistFilingsShaping.js';
 
 export function register(server: McpServer, client: ProxyClient): void {
-  server.tool(
+  server.registerTool(
     'get_activist_filings',
-    'Get Schedule 13D/13G beneficial-ownership filings for a symbol. Default response prioritizes the latest above-threshold holder snapshot per filer and summarizes below-threshold amendments separately so current holders stay visible. Use full=true for the raw filing list.',
     {
-      symbol: z.string().describe('Ticker symbol'),
-      full: z.boolean().optional().describe('Return the raw filing list instead of the compact current-holder summary.'),
+      title: 'Activist Filings',
+      description: 'Get Schedule 13D/13G beneficial-ownership filings for a symbol. Default response prioritizes the latest above-threshold holder snapshot per filer and summarizes below-threshold amendments separately so current holders stay visible. Use full=true for the raw filing list.',
+      inputSchema: {
+        symbol: z.string().describe('Ticker symbol'),
+        full: z.boolean().optional().describe('Return the raw filing list instead of the compact current-holder summary.'),
+      },
+      annotations: { readOnlyHint: true, openWorldHint: true },
     },
     toolHandler(async ({ symbol, full }) => {
       const response = await client.get(`/activist-filings/${encodeURIComponent(symbol.toUpperCase())}`) as any;

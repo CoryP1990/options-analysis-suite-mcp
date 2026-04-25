@@ -26,14 +26,18 @@ const SNAPSHOT_DESCRIPTION = `Get the user's synced snapshot history by type. De
 • type="risk" — account-wide risk-analysis snapshots: Value-at-Risk (95%/99%), Conditional VaR, portfolio beta, Sharpe ratio, maximum drawdown, volatility, stress test results, and aggregate Greek \$-impact exposure. \$-Greeks include first-order dollarDelta, dollarGamma (per 1% move), dollarTheta/day, dollarVega (per 1% IV), dollarRho (per 1% rate) and second-order dollarVanna (per 1% IV move), dollarCharm (daily \$Δ decay), dollarVomma (per 1% IV), dollarVeta (daily vega decay). Default view collapses consecutive identical snapshots; correlation matrices omitted unless full=true. For raw-unit Greeks, use type="portfolio".`;
 
 export function register(server: McpServer, client: ProxyClient): void {
-  server.tool(
+  server.registerTool(
     'get_snapshot',
-    SNAPSHOT_DESCRIPTION,
     {
-      type: z.enum(['gex', 'portfolio', 'risk']).describe('Which snapshot feed to fetch.'),
-      symbol: z.string().optional().describe('Required for type=gex; ignored otherwise.'),
-      limit: z.number().int().min(1).max(50).default(3).describe('Max snapshots (default 3)'),
-      full: z.boolean().default(false).describe('Return the full untrimmed payload including detail tables, correlation matrices, and per-position breakdowns.'),
+      title: 'Account Snapshots',
+      description: SNAPSHOT_DESCRIPTION,
+      inputSchema: {
+        type: z.enum(['gex', 'portfolio', 'risk']).describe('Which snapshot feed to fetch.'),
+        symbol: z.string().optional().describe('Required for type=gex; ignored otherwise.'),
+        limit: z.number().int().min(1).max(50).default(3).describe('Max snapshots (default 3)'),
+        full: z.boolean().default(false).describe('Return the full untrimmed payload including detail tables, correlation matrices, and per-position breakdowns.'),
+      },
+      annotations: { readOnlyHint: true, openWorldHint: true },
     },
     toolHandler(async ({ type, symbol, limit, full }) => {
       if (type === 'gex') {

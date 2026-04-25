@@ -198,21 +198,25 @@ function routeForScreener(screener: typeof SCREENER_IDS[number], sub: Sub, limit
 }
 
 export function register(server: McpServer, client: ProxyClient): void {
-  server.tool(
+  server.registerTool(
     'run_screener',
-    SCREENER_DESCRIPTION,
     {
-      screener: z.enum(SCREENER_IDS).describe('Which screener to run.'),
-      limit: z.number().int().min(1).max(100).default(15).describe('Max rows (default 15, cap 100).'),
-      view: z.enum(['ticker', 'contract']).optional().describe('Only for most-active/highest-oi/highest-iv/unusual/gex. Default ticker.'),
-      index: z.enum(['all', 'sp500', 'sp400', 'sp600', 'etf']).optional().describe('Index bucket for main-tab screeners. Default all.'),
-      metric: z.enum(['gex', 'iv', 'put-call', 'skew', 'regime']).optional().describe('Required for dod-change: which day-over-day metric to rank by.'),
-      side: z.enum(['high', 'low', 'call', 'put']).optional().describe('Required for vrp (high|low) and unusual-directional (call|put).'),
-      mode: z.enum(['pinning', 'divergence']).optional().describe('Required for max-pain.'),
-      direction: z.enum(['all', 'up', 'down']).optional().describe('Optional direction filter for dod-change on gex/iv/put-call metrics.'),
-      threshold: z.number().min(0).optional().describe('Only for unusual: min volume-to-open-interest ratio. Default 1.0.'),
-      days: z.number().int().min(1).max(730).optional().describe('For market-trends: history length in days (1..730). For earnings-calendar: forward window size in days (1..90, default 14). Earnings-calendar enforces the 90-day cap at runtime.'),
-      symbol: z.string().optional().describe('Only for earnings-calendar: filter to a single ticker.'),
+      title: 'Options Screener',
+      description: SCREENER_DESCRIPTION,
+      inputSchema: {
+        screener: z.enum(SCREENER_IDS).describe('Which screener to run.'),
+        limit: z.number().int().min(1).max(100).default(15).describe('Max rows (default 15, cap 100).'),
+        view: z.enum(['ticker', 'contract']).optional().describe('Only for most-active/highest-oi/highest-iv/unusual/gex. Default ticker.'),
+        index: z.enum(['all', 'sp500', 'sp400', 'sp600', 'etf']).optional().describe('Index bucket for main-tab screeners. Default all.'),
+        metric: z.enum(['gex', 'iv', 'put-call', 'skew', 'regime']).optional().describe('Required for dod-change: which day-over-day metric to rank by.'),
+        side: z.enum(['high', 'low', 'call', 'put']).optional().describe('Required for vrp (high|low) and unusual-directional (call|put).'),
+        mode: z.enum(['pinning', 'divergence']).optional().describe('Required for max-pain.'),
+        direction: z.enum(['all', 'up', 'down']).optional().describe('Optional direction filter for dod-change on gex/iv/put-call metrics.'),
+        threshold: z.number().min(0).optional().describe('Only for unusual: min volume-to-open-interest ratio. Default 1.0.'),
+        days: z.number().int().min(1).max(730).optional().describe('For market-trends: history length in days (1..730). For earnings-calendar: forward window size in days (1..90, default 14). Earnings-calendar enforces the 90-day cap at runtime.'),
+        symbol: z.string().optional().describe('Only for earnings-calendar: filter to a single ticker.'),
+      },
+      annotations: { readOnlyHint: true, openWorldHint: true },
     },
     toolHandler(async (args) => {
       const screener = args.screener as typeof SCREENER_IDS[number];

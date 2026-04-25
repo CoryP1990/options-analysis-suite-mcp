@@ -22,14 +22,18 @@ const FILING_TYPE = z.enum([
 ]);
 
 export function register(server: McpServer, client: ProxyClient): void {
-  server.tool(
+  server.registerTool(
     'get_sec_filings',
-    'Get recent SEC EDGAR filings for a symbol. Useful for finding 10-K, 10-Q, 8-K, proxy, insider, offering, and activist filings with direct SEC URLs. Default response returns a compact filing list with dates, form types, descriptions, accession numbers, and filing links.',
     {
-      symbol: z.string().describe('Ticker symbol (e.g., AAPL, TSLA)'),
-      limit: z.number().int().min(1).max(50).default(10).describe('Maximum number of filings to return (default 10, max 50).'),
-      type: FILING_TYPE.default('all').describe('Optional SEC form-type filter. Use 424B2/3/4/5 for prospectus supplements; default all returns the most recent mixed filing list.'),
-      full: z.boolean().optional().describe('Return the raw SEC EDGAR filing payload instead of the compact summary.'),
+      title: 'SEC Filings',
+      description: 'Get recent SEC EDGAR filings for a symbol. Useful for finding 10-K, 10-Q, 8-K, proxy, insider, offering, and activist filings with direct SEC URLs. Default response returns a compact filing list with dates, form types, descriptions, accession numbers, and filing links.',
+      inputSchema: {
+        symbol: z.string().describe('Ticker symbol (e.g., AAPL, TSLA)'),
+        limit: z.number().int().min(1).max(50).default(10).describe('Maximum number of filings to return (default 10, max 50).'),
+        type: FILING_TYPE.default('all').describe('Optional SEC form-type filter. Use 424B2/3/4/5 for prospectus supplements; default all returns the most recent mixed filing list.'),
+        full: z.boolean().optional().describe('Return the raw SEC EDGAR filing payload instead of the compact summary.'),
+      },
+      annotations: { readOnlyHint: true, openWorldHint: true },
     },
     toolHandler(async ({ symbol, limit, type, full }) => {
       const upperSymbol = encodeURIComponent(symbol.toUpperCase());

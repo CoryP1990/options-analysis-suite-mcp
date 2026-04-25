@@ -9,15 +9,19 @@ import {
 } from './syncResponseShaping.js';
 
 export function register(server: McpServer, client: ProxyClient): void {
-  server.tool(
+  server.registerTool(
     'get_analysis_history',
-    'Get the user\'s options pricing analysis history — past calculations run in the platform. Each result includes the model used (Black-Scholes, Heston, SABR, etc.), input parameters (spot, strike, volatility, DTE), computed option price, and Greeks. Includes calibration data and model-specific sensitivities when available. Default view collapses near-identical reruns from the same pricing sweep; use full=true for the raw history.',
     {
-      symbol: z.string().optional().describe('Filter by ticker symbol'),
-      model: z.string().optional().describe('Filter by pricing model (e.g., BlackScholes, Heston)'),
-      limit: z.number().int().min(1).max(200).default(10).describe('Max results (default 10)'),
-      since: z.string().optional().describe('Only results after this date (ISO format)'),
-      full: z.boolean().default(false).describe('Return full untrimmed data including detail tables, correlation matrices, and per-position breakdowns'),
+      title: 'Analysis History',
+      description: 'Get the user\'s options pricing analysis history — past calculations run in the platform. Each result includes the model used (Black-Scholes, Heston, SABR, etc.), input parameters (spot, strike, volatility, DTE), computed option price, and Greeks. Includes calibration data and model-specific sensitivities when available. Default view collapses near-identical reruns from the same pricing sweep; use full=true for the raw history.',
+      inputSchema: {
+        symbol: z.string().optional().describe('Filter by ticker symbol'),
+        model: z.string().optional().describe('Filter by pricing model (e.g., BlackScholes, Heston)'),
+        limit: z.number().int().min(1).max(200).default(10).describe('Max results (default 10)'),
+        since: z.string().optional().describe('Only results after this date (ISO format)'),
+        full: z.boolean().default(false).describe('Return full untrimmed data including detail tables, correlation matrices, and per-position breakdowns'),
+      },
+      annotations: { readOnlyHint: true, openWorldHint: true },
     },
     toolHandler(async ({ symbol, model, limit, since, full }) => {
       const fetchLimit = full ? limit : Math.min(limit * 5, 200);

@@ -34,14 +34,18 @@ const DARK_POOL_DESCRIPTION = `Get FINRA OTC (dark pool / non-ATS) and ATS (Alte
 Optional: \`weeks\` (1..260, default 12) narrows the history window for dealers/venues/all. High dark-pool activity can signal institutional accumulation or distribution; per-dealer and per-venue views surface who specifically is active.`;
 
 export function register(server: McpServer, client: ProxyClient): void {
-  server.tool(
+  server.registerTool(
     'get_dark_pool_data',
-    DARK_POOL_DESCRIPTION,
     {
-      symbol: z.string().describe('Ticker symbol'),
-      view: z.enum(['summary', 'dealers', 'venues', 'all']).default('summary').describe('Aggregate summary (default), per-dealer OTC breakdown, per-venue ATS breakdown, or all three.'),
-      weeks: z.number().int().min(1).max(260).optional().describe('Only for view=dealers/venues/all: history weeks (default 12).'),
-      full: z.boolean().optional().describe('Only for view=summary: return the full raw OTC and ATS weekly history and bypass the size guard.'),
+      title: 'Dark Pool & ATS Data',
+      description: DARK_POOL_DESCRIPTION,
+      inputSchema: {
+        symbol: z.string().describe('Ticker symbol'),
+        view: z.enum(['summary', 'dealers', 'venues', 'all']).default('summary').describe('Aggregate summary (default), per-dealer OTC breakdown, per-venue ATS breakdown, or all three.'),
+        weeks: z.number().int().min(1).max(260).optional().describe('Only for view=dealers/venues/all: history weeks (default 12).'),
+        full: z.boolean().optional().describe('Only for view=summary: return the full raw OTC and ATS weekly history and bypass the size guard.'),
+      },
+      annotations: { readOnlyHint: true, openWorldHint: true },
     },
     toolHandler(async ({ symbol, view, weeks, full }) => {
       const sym = encodeURIComponent(symbol.toUpperCase());

@@ -9,20 +9,24 @@ import {
 } from './syncResponseShaping.js';
 
 export function register(server: McpServer, client: ProxyClient): void {
-  server.tool(
+  server.registerTool(
     'query_analysis',
-    'Query your analysis history with filters. Find specific analyses by greek values, volatility ranges, or other criteria. For example: "analyses where delta > 0.7" or "all Heston runs with IV below 30%". Default view collapses near-identical reruns from the same pricing sweep so the results stay diverse and readable.',
     {
-      symbol: z.string().optional().describe('Filter by ticker symbol'),
-      model: z.string().optional().describe('Filter by pricing model (e.g., BlackScholes, Heston)'),
-      since: z.string().optional().describe('Only results after this date (ISO format)'),
-      minDelta: z.number().optional().describe('Minimum delta value'),
-      maxDelta: z.number().optional().describe('Maximum delta value'),
-      minVolatility: z.number().optional().describe('Minimum volatility (e.g., 0.25 for 25%)'),
-      maxVolatility: z.number().optional().describe('Maximum volatility (e.g., 0.50 for 50%)'),
-      minDte: z.number().optional().describe('Minimum days to expiry'),
-      maxDte: z.number().optional().describe('Maximum days to expiry'),
-      limit: z.number().int().min(1).max(100).default(20).describe('Max results (default 20)'),
+      title: 'Query Analysis',
+      description: 'Query your analysis history with filters. Find specific analyses by greek values, volatility ranges, or other criteria. For example: "analyses where delta > 0.7" or "all Heston runs with IV below 30%". Default view collapses near-identical reruns from the same pricing sweep so the results stay diverse and readable.',
+      inputSchema: {
+        symbol: z.string().optional().describe('Filter by ticker symbol'),
+        model: z.string().optional().describe('Filter by pricing model (e.g., BlackScholes, Heston)'),
+        since: z.string().optional().describe('Only results after this date (ISO format)'),
+        minDelta: z.number().optional().describe('Minimum delta value'),
+        maxDelta: z.number().optional().describe('Maximum delta value'),
+        minVolatility: z.number().optional().describe('Minimum volatility (e.g., 0.25 for 25%)'),
+        maxVolatility: z.number().optional().describe('Maximum volatility (e.g., 0.50 for 50%)'),
+        minDte: z.number().optional().describe('Minimum days to expiry'),
+        maxDte: z.number().optional().describe('Maximum days to expiry'),
+        limit: z.number().int().min(1).max(100).default(20).describe('Max results (default 20)'),
+      },
+      annotations: { readOnlyHint: true, openWorldHint: true },
     },
     toolHandler(async ({ symbol, model, since, minDelta, maxDelta, minVolatility, maxVolatility, minDte, maxDte, limit }) => {
       // Fetch a larger set from the server to allow client-side filtering

@@ -4,7 +4,7 @@ import type { ProxyClient } from '../../proxy/proxyClient.js';
 import { register, SCREENER_IDS } from './screeners.js';
 
 /**
- * Captures the handler registered with `server.tool(...)` so we can
+ * Captures the handler registered with `server.registerTool(...)` so we can
  * invoke it directly and assert on the proxy-GET that results.
  */
 type ToolHandler = (args: Record<string, unknown>) => Promise<{ isError?: boolean; content: Array<{ type: 'text'; text: string }> }>;
