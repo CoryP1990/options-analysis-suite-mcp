@@ -46,6 +46,16 @@ function compactGreeks(greeks: unknown): unknown {
   return out;
 }
 
+function compactCalibration(calibration: unknown): unknown {
+  if (!calibration || typeof calibration !== 'object' || Array.isArray(calibration)) return calibration;
+  const src = calibration as Record<string, unknown>;
+  const { isFallback: _isFallback, ...rest } = src;
+  return {
+    ...rest,
+    ...(src.isFallback === true ? { fallback: true } : {}),
+  };
+}
+
 /** Humanize backend enum values like 'strongSell' → 'strong sell',
  *  'majority_buy' → 'majority buy'. Handles both camelCase and snake_case.
  *  Single-word values ('buy', 'sell', 'hold', 'mixed') pass through unchanged.
@@ -99,11 +109,40 @@ function compactBestValues(bestValues: unknown): unknown {
   );
 }
 
+/** Humanize the keys of an object whose keys are signal enum names
+ *  (e.g. signalCounts: { weakBuy: 3 } → { 'weak buy': 3 }). Values pass
+ *  through unchanged in the common case. If two source keys humanize to
+ *  the same target key (e.g. 'weakBuy' and 'weak_buy' both → 'weak buy')
+ *  numeric values are summed so counts aren't silently overwritten. */
+function humanizeSignalKeyedObject(value: unknown): unknown {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    const humanK = humanizeSignal(k);
+    const targetKey = typeof humanK === 'string' ? humanK : k;
+    if (targetKey in out && typeof out[targetKey] === 'number' && typeof v === 'number') {
+      out[targetKey] = (out[targetKey] as number) + v;
+    } else {
+      out[targetKey] = v;
+    }
+  }
+  return out;
+}
+
 function compactSummary(summary: unknown): unknown {
   if (!summary || typeof summary !== 'object' || Array.isArray(summary)) return summary;
   return Object.fromEntries(
     Object.entries(summary as Record<string, unknown>)
-      .filter(([k]) => !SUMMARY_DROP_KEYS.has(k)),
+      .filter(([k]) => !SUMMARY_DROP_KEYS.has(k))
+      .map(([k, v]) => {
+        // Aggregate-count keys are signal enum names (weakBuy/strongSell/etc.)
+        // — humanize the keys so the wire surface is consistent with the
+        // already-humanized scalar `signal` and `agreement` fields.
+        if (k === 'signalCounts' || k === 'agreementCounts') {
+          return [k, humanizeSignalKeyedObject(v)];
+        }
+        return [k, v];
+      }),
   );
 }
 
@@ -148,6 +187,7 @@ function compactPositions(positions: unknown): unknown {
 export function flattenObjects(obj: Record<string, unknown>): Record<string, unknown> {
   return Object.fromEntries(
     Object.entries(obj).map(([k, v]) => {
+      if (k === 'calibration') return [k, compactCalibration(v)];
       if (k === 'summary') return [k, compactSummary(v)];
       if (k === 'bestValues') return [k, compactBestValues(v)];
       if (k === 'positions') return [k, compactPositions(v)];

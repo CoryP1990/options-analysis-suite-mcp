@@ -14,7 +14,7 @@ const STRESS_SCORE_NOTE = 'stress_score is a raw composite regime score, not a 0
 
 const REGIME_DESCRIPTION = `Get regime data at one of three scopes. Pick the scope that matches the question; irrelevant sub-params are ignored.
 
-• scope="market" — MARKET COMPOSITE stress regime (aggregate across SPY/QQQ/IWM/DIA, not per-symbol). Returns composite stress score, confidence, key drivers, feature z-scores. Bands: CALM < -0.5, NORMAL -0.5..0.5, ELEVATED 0.5..1.5, STRESS 1.5..2.5, CRISIS ≥ 2.5. Accepts \`date\` (YYYY-MM-DD, default latest) and \`include_symbols\` (default false; true returns ~180KB with all 124 per-symbol breakdowns and the raw regime payload).
+• scope="market" — MARKET COMPOSITE stress regime (aggregate across SPY/QQQ/IWM/DIA, not per-symbol). Returns composite stress score, confidence, key drivers, feature z-scores. Bands: CALM < -0.5, NORMAL -0.5..0.5, ELEVATED 0.5..1.5, STRESS 1.5..2.5, CRISIS ≥ 2.5. Accepts \`date\` (YYYY-MM-DD, default latest) and \`include_symbols\` (default false; true also returns up to the top 8 symbols per classification tier sorted by absolute stress score, with raw vector internals stripped — see _symbols_truncation_meta for total counts).
 • scope="symbol" — per-symbol daily regime + authoritative Greek exposures (net gamma/delta/vega/vanna/charm/vomma, call wall, put wall, gamma flip, top 10 gamma strikes). REQUIRED: \`symbol\`. Accepts \`days\` (default 1 = latest, max 30) and \`full\` (default false; true keeps raw vector). This is the correct scope for "what are SPY's Greek exposures?" — do NOT use get_options_analytics_history for current exposures.
 • scope="intraday" — intraday regime scan history for a symbol: 5 scans/day (open, morning, midday, afternoon, pre-close), each with stress scoring, regime classification, and 6 Greek exposure snapshots. REQUIRED: \`symbol\`. Accepts \`days\` (default 5, max 90), \`date\` (overrides days), and \`interval\` (filter to a single scan).`;
 
@@ -45,7 +45,7 @@ export function register(server: McpServer, client: ProxyClient): void {
         date: z.string().optional().describe('Specific date (YYYY-MM-DD). For scope=market: default is latest. For scope=intraday: overrides `days`.'),
         days: z.number().int().min(1).max(90).optional().describe('For scope=symbol: history days (default 1, max 30). For scope=intraday: history days (default 5, max 90).'),
         interval: z.string().optional().describe('For scope=intraday only: filter to open | morning | midday | afternoon | pre-close.'),
-        include_symbols: z.boolean().optional().describe('For scope=market only: include all 124 per-symbol breakdowns (~180KB). Default false.'),
+        include_symbols: z.boolean().optional().describe('For scope=market only: include per-symbol breakdowns capped at the top 8 strongest per classification tier. Default false.'),
         full: z.boolean().optional().describe('For scope=symbol only: keep raw vector for multi-day requests. Default false.'),
       },
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
@@ -68,9 +68,12 @@ export function register(server: McpServer, client: ProxyClient): void {
               };
             }
           }
-          if (res.symbols) {
+          if (include_symbols && res.symbols && typeof res.symbols === 'object') {
             res._stress_score_note = STRESS_SCORE_NOTE;
-            for (const scopeRows of Object.values(res.symbols) as any[][]) {
+            const TOP_N_PER_TIER = 8;
+            const tierMeta: Record<string, { total: number; returned: number }> = {};
+            for (const [tier, scopeRows] of Object.entries(res.symbols) as [string, any[]][]) {
+              if (!Array.isArray(scopeRows)) continue;
               for (const row of scopeRows) {
                 const gex = row?.vector?._meta?.gex;
                 if (gex) {
@@ -85,16 +88,56 @@ export function register(server: McpServer, client: ProxyClient): void {
                 // Humanize per-symbol drivers + vector feature-key records so
                 // include_symbols=true raw payload doesn't leak backend identifiers.
                 humanizeRegimeEntry(row);
+                // Per-symbol classification tier — same rename as scope=symbol path
+                // so include_symbols=true rows don't surface a raw `scope` field.
+                if (row && typeof row === 'object' && 'scope' in row) {
+                  row.symbolTier = row.scope;
+                  delete row.scope;
+                }
+                // Drop the raw vector blob now that exposures + humanized features
+                // have been hoisted. The blob carried backend identifiers
+                // (callWall/gammaFlip in _meta.gex, raw z/raw/data_quality maps)
+                // and inflated this response from ~150 KB to ~900 KB.
+                if (row && typeof row === 'object') {
+                  delete row.vector;
+                }
               }
+              // Cap each tier to top-N by absolute stress score so the response
+              // stays in a ChatGPT-friendly range. Without this cap, ~124 symbols
+              // across all tiers still pushed the response past 100 KB even after
+              // vector stripping.
+              if (scopeRows.length > TOP_N_PER_TIER) {
+                const stressOf = (row: any): number => {
+                  // Live rows expose stress_score; some legacy paths may use
+                  // score. Coalesce so the cap genuinely keeps the strongest
+                  // signals instead of silently sorting everything as 0.
+                  const v = row?.stress_score ?? row?.score;
+                  return typeof v === 'number' ? Math.abs(v) : 0;
+                };
+                const sorted = [...scopeRows].sort((a, b) => stressOf(b) - stressOf(a));
+                tierMeta[tier] = { total: scopeRows.length, returned: TOP_N_PER_TIER };
+                (res.symbols as any)[tier] = sorted.slice(0, TOP_N_PER_TIER);
+              }
+            }
+            if (Object.keys(tierMeta).length > 0) {
+              res._symbols_truncation_meta = {
+                selection: 'top-N per tier by |stress_score|',
+                tiers: tierMeta,
+              };
             }
           }
           // Also humanize the top-level market entry for include_symbols=true raw mode
           // (default scope=market path runs through shapeMarketRegimeResponse separately).
           if (include_symbols && res.market && typeof res.market === 'object') {
             humanizeRegimeEntry(res.market);
+            delete (res.market as any).vector;
           }
         }
-        if (include_symbols) return { _skipSizeGuard: true, data: res };
+        // Don't bypass the size guard. Vector stripping + top-N-per-tier
+        // typically lands the response well under 50 KB, but on rare market
+        // states the guard is the safety net so we never silently emit a
+        // 100+ KB blob ChatGPT cannot consume.
+        if (include_symbols) return res;
         if (res && typeof res === 'object' && 'market' in res) {
           return shapeMarketRegimeResponse({ market: res.market });
         }
@@ -137,7 +180,21 @@ export function register(server: McpServer, client: ProxyClient): void {
         days: String(symbolDays),
       }) as any;
 
-      if (!res?.history?.length) return null;
+      if (!res?.history?.length) {
+        // Return a structured no-data record instead of null so the LLM can
+        // explain to the user that no daily symbol-regime classification has
+        // been computed for this ticker yet, rather than reporting a tool
+        // failure. Mirrors the shape used by the populated path.
+        return {
+          symbol: symbol.toUpperCase(),
+          // Use `view` instead of `scope` so the no-data record doesn't
+          // re-introduce an output `scope` field on a path where the
+          // populated response uses `symbolTier` instead.
+          view: 'symbol',
+          dataAvailable: false,
+          message: 'No daily symbol-regime data available for this symbol. Symbol-regime classification covers a curated universe; not every ticker is included.',
+        };
+      }
 
       // Rename top-level `scope` (symbol classification tier — bellwether/sector/etc.) to
       // `symbolTier` so it doesn't collide with the MCP input parameter named `scope`

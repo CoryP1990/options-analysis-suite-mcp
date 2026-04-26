@@ -18,8 +18,17 @@ type ComputeRunFilters = {
 };
 
 const MAX_DEFAULT_POSITIONS = 5;
+const MAX_MULTI_RUN_POSITIONS = 3;
 const MAX_DEFAULT_ERRORS = 5;
 const MAX_MULTI_RUN_MODELS = 5;
+const MAX_SINGLE_RUN_FALLBACK_POSITIONS = 3;
+const MAX_SINGLE_RUN_FALLBACK_MODELS = 5;
+const MAX_SINGLE_RUN_EMERGENCY_POSITIONS = 1;
+const MAX_SINGLE_RUN_EMERGENCY_MODELS = 3;
+const BUDGET_DISPERSION_KEYS = new Set(['Price', 'Delta', 'Gamma', 'Theta', 'Vega', 'Rho', 'Vanna', 'Charm', 'Vomma', 'Veta']);
+/** Headroom under the 50 KB MCP response limit so the generic size guard
+ *  never silently collapses the response. Mirrors fftResponseShaping. */
+const COMPUTE_RUNS_SAFE_SIZE_BUDGET = 48 * 1024;
 
 function getObject(value: unknown): Record<string, unknown> | null {
   if (value == null || typeof value !== 'object' || Array.isArray(value)) return null;
@@ -129,8 +138,7 @@ function shapeCalibrationSummary(value: unknown): Record<string, unknown> | unde
     confidence: round(calibration.confidence, 4),
     // Replace the camelCase `isFallback` boolean with the single-word `fallback`,
     // emitted only when the calibration actually fell back to defaults. Reads as
-    // prose ("the model is in fallback") instead of a code identifier. Internal
-    // priority/calibratedModels consumers read `fallback` below.
+    // prose ("the model is in fallback") instead of a code identifier.
     ...(calibration.isFallback === true ? { fallback: true } : {}),
     expirationDate: typeof calibration.expirationDate === 'string' ? calibration.expirationDate : undefined,
     executionPath: typeof calibration.executionPath === 'string' ? calibration.executionPath : undefined,
@@ -157,6 +165,34 @@ function shapeKeyLevels(value: unknown): Record<string, unknown> | undefined {
     out[KEY_MAP[k] ?? k] = v;
   }
   return out;
+}
+
+/** Sanitize raw/full compute-run payloads at the MCP boundary. Full mode still
+ *  returns the raw row structure, but backend identifiers that LLMs repeat as
+ *  prose (`isFallback`, `callWall`, `gammaFlip`, etc.) are rewritten first. */
+export function sanitizeComputeRunsWireOutput(value: unknown, depth = 0): void {
+  if (depth > 12 || value == null || typeof value !== 'object') return;
+  if (Array.isArray(value)) {
+    for (const item of value) sanitizeComputeRunsWireOutput(item, depth + 1);
+    return;
+  }
+
+  const obj = value as Record<string, unknown>;
+  if ('keyLevels' in obj) {
+    const shaped = shapeKeyLevels(obj.keyLevels);
+    if (shaped) obj.keyLevels = shaped;
+  }
+  if ('isFallback' in obj) {
+    const fallback = obj.isFallback === true;
+    delete obj.isFallback;
+    if (fallback) obj.fallback = true;
+  }
+
+  for (const child of Object.values(obj)) {
+    if (child != null && typeof child === 'object') {
+      sanitizeComputeRunsWireOutput(child, depth + 1);
+    }
+  }
 }
 
 function getVariantPriority(value: unknown): number {
@@ -342,13 +378,6 @@ function shapeExposureSweep(value: unknown): Array<Record<string, unknown>> | un
   return sweep.length > 0 ? sweep : undefined;
 }
 
-function shapeDispersionExclusions(value: Record<string, unknown> | null): Record<string, unknown> | undefined {
-  if (!value) return undefined;
-  const models = getArray<string>(value.models).filter((item) => typeof item === 'string');
-  if (models.length === 0) return undefined;
-  return { models };
-}
-
 function shapeDispersion(value: Record<string, unknown> | null): Record<string, unknown> | undefined {
   if (!value) return undefined;
 
@@ -367,6 +396,138 @@ function shapeDispersion(value: Record<string, unknown> | null): Record<string, 
   );
 
   return Object.keys(shaped).length > 0 ? shaped : undefined;
+}
+
+function shapeDispersionExclusions(value: Record<string, unknown> | null): Record<string, unknown> | undefined {
+  if (!value) return undefined;
+  const models = getArray<string>(value.models).filter((item) => typeof item === 'string');
+  if (models.length === 0) return undefined;
+  return { models };
+}
+
+function limitPositionModels(position: Record<string, unknown>, maxModels: number): Record<string, unknown> {
+  const models = getObject(position.models);
+  if (!models) return position;
+
+  const entries = Object.entries(models);
+  if (entries.length <= maxModels) return position;
+
+  return {
+    ...position,
+    models: Object.fromEntries(entries.slice(0, maxModels)),
+    omittedModelCount: (typeof position.omittedModelCount === 'number' ? position.omittedModelCount : 0) + entries.length - maxModels,
+  };
+}
+
+function limitRunPositionsAndModels(run: Record<string, unknown>, maxPositions: number, maxModels: number): Record<string, unknown> {
+  const positions = getArray<Record<string, unknown>>(run.positions);
+  if (positions.length === 0) return run;
+
+  return {
+    ...run,
+    positions: positions
+      .slice(0, maxPositions)
+      .map((position) => limitPositionModels(position, maxModels)),
+    omittedPositionCount: (typeof run.omittedPositionCount === 'number' ? run.omittedPositionCount : 0) + Math.max(0, positions.length - maxPositions),
+  };
+}
+
+function compactPortfolioDispersionForBudget(run: Record<string, unknown>): Record<string, unknown> {
+  const dispersion = getObject(run.portfolioDispersion);
+  if (!dispersion) return run;
+
+  const compact = Object.fromEntries(
+    Object.entries(dispersion)
+      .filter(([greek]) => BUDGET_DISPERSION_KEYS.has(greek))
+      .map(([greek, value]) => {
+        const metric = getObject(value);
+        if (!metric) return [greek, value];
+        const { models: _models, ...withoutModels } = metric;
+        return [greek, withoutModels];
+      }),
+  );
+
+  return {
+    ...run,
+    portfolioDispersion: compact,
+    _portfolioDispersion_meta: {
+      modelsOmitted: true,
+      kept: Object.keys(compact),
+    },
+  };
+}
+
+function buildComputeRunsOutput(response: Record<string, unknown>, shapedRuns: Array<Record<string, unknown>>): Record<string, unknown> {
+  const statuses = Array.from(new Set(
+    shapedRuns.map((record) => record.status).filter((status): status is string => typeof status === 'string' && status.length > 0),
+  ));
+  const scopes = Array.from(new Set(
+    shapedRuns.map((record) => record.scope).filter((scope): scope is string => typeof scope === 'string' && scope.length > 0),
+  ));
+  const qualities = Array.from(new Set(
+    shapedRuns.map((record) => record.quality).filter((quality): quality is string => typeof quality === 'string' && quality.length > 0),
+  ));
+  const underlyings = Array.from(new Set(
+    shapedRuns.flatMap((record) => getArray<string>(record.underlyings)).filter((value) => typeof value === 'string' && value.length > 0),
+  ));
+  const latest = shapedRuns[0];
+
+  return {
+    ...response,
+    data: shapedRuns,
+    summary: {
+      returnedRuns: shapedRuns.length,
+      latestRunKey: typeof latest?.runKey === 'string' ? latest.runKey : undefined,
+      latestStatus: typeof latest?.status === 'string' ? latest.status : undefined,
+      latestStartedAt: typeof latest?.startedAt === 'string' ? latest.startedAt : undefined,
+      statuses,
+      scopes,
+      qualities,
+      underlyings,
+    },
+  };
+}
+
+function trimComputeRunsToBudget(out: Record<string, unknown>): Record<string, unknown> {
+  if (!Array.isArray(out.data) || JSON.stringify(out).length <= COMPUTE_RUNS_SAFE_SIZE_BUDGET) return out;
+
+  const requested = out.data.length;
+  while (out.data.length > 1 && JSON.stringify(out).length > COMPUTE_RUNS_SAFE_SIZE_BUDGET) {
+    out.data.pop();
+  }
+
+  if (out.data.length === 1 && JSON.stringify(out).length > COMPUTE_RUNS_SAFE_SIZE_BUDGET) {
+    out.data[0] = limitRunPositionsAndModels(out.data[0] as Record<string, unknown>, MAX_SINGLE_RUN_FALLBACK_POSITIONS, MAX_SINGLE_RUN_FALLBACK_MODELS);
+  }
+  if (out.data.length === 1 && JSON.stringify(out).length > COMPUTE_RUNS_SAFE_SIZE_BUDGET) {
+    out.data[0] = compactPortfolioDispersionForBudget(out.data[0] as Record<string, unknown>);
+  }
+  if (out.data.length === 1 && JSON.stringify(out).length > COMPUTE_RUNS_SAFE_SIZE_BUDGET) {
+    out.data[0] = limitRunPositionsAndModels(out.data[0] as Record<string, unknown>, MAX_SINGLE_RUN_EMERGENCY_POSITIONS, MAX_SINGLE_RUN_EMERGENCY_MODELS);
+  }
+  if (out.data.length === 1 && JSON.stringify(out).length > COMPUTE_RUNS_SAFE_SIZE_BUDGET) {
+    const run = out.data[0] as Record<string, unknown>;
+    const positions = getArray(run.positions);
+    delete run.positions;
+    run._positions_meta = { omitted: true, omittedCount: positions.length, reason: 'size budget' };
+  }
+  if (out.data.length === 1 && JSON.stringify(out).length > COMPUTE_RUNS_SAFE_SIZE_BUDGET) {
+    const run = out.data[0] as Record<string, unknown>;
+    delete run.portfolioDispersion;
+    run._portfolioDispersion_meta = { omitted: true, reason: 'size budget' };
+  }
+
+  out.count = out.data.length;
+  const summary = getObject(out.summary);
+  if (summary) summary.returnedRuns = out.data.length;
+  out._truncation_meta = {
+    returned: out.data.length,
+    requested,
+    selection: 'newest',
+    reason: 'size budget',
+  };
+
+  return out;
 }
 
 export function shapeComputeRunRecord(
@@ -437,38 +598,17 @@ export function recordMatchesComputeFilters(record: unknown, filters: ComputeRun
 export function summarizeComputeRunsResponse(payload: unknown): unknown {
   const response = getObject(payload);
   if (!response || !Array.isArray(response.data)) return payload;
-  const maxModelsPerPosition = response.data.length >= 4 ? MAX_MULTI_RUN_MODELS : undefined;
+  // Apply per-position model AND positions trimming as soon as more than one
+  // run is requested. The previous setup left limit=2/3 unbounded on positions
+  // and only trimmed models at limit>=4; on rich-data accounts this blew the
+  // 50 KB MCP budget. Cap to 3 positions × 5 models per multi-run record.
+  const isMultiRun = response.data.length >= 2;
+  const maxModelsPerPosition = isMultiRun ? MAX_MULTI_RUN_MODELS : undefined;
+  const maxPositionsPerRun = isMultiRun ? MAX_MULTI_RUN_POSITIONS : MAX_DEFAULT_POSITIONS;
 
   const shapedRuns = response.data
-    .map((record) => shapeComputeRunRecord(record, MAX_DEFAULT_POSITIONS, maxModelsPerPosition))
+    .map((record) => shapeComputeRunRecord(record, maxPositionsPerRun, maxModelsPerPosition))
     .filter((record): record is Record<string, unknown> => record != null && typeof record === 'object' && !Array.isArray(record));
 
-  const statuses = Array.from(new Set(
-    shapedRuns.map((record) => record.status).filter((status): status is string => typeof status === 'string' && status.length > 0),
-  ));
-  const scopes = Array.from(new Set(
-    shapedRuns.map((record) => record.scope).filter((scope): scope is string => typeof scope === 'string' && scope.length > 0),
-  ));
-  const qualities = Array.from(new Set(
-    shapedRuns.map((record) => record.quality).filter((quality): quality is string => typeof quality === 'string' && quality.length > 0),
-  ));
-  const underlyings = Array.from(new Set(
-    shapedRuns.flatMap((record) => getArray<string>(record.underlyings)).filter((value) => typeof value === 'string' && value.length > 0),
-  ));
-  const latest = shapedRuns[0];
-
-  return {
-    ...response,
-    data: shapedRuns,
-    summary: {
-      returnedRuns: shapedRuns.length,
-      latestRunKey: typeof latest?.runKey === 'string' ? latest.runKey : undefined,
-      latestStatus: typeof latest?.status === 'string' ? latest.status : undefined,
-      latestStartedAt: typeof latest?.startedAt === 'string' ? latest.startedAt : undefined,
-      statuses,
-      scopes,
-      qualities,
-      underlyings,
-    },
-  };
+  return trimComputeRunsToBudget(buildComputeRunsOutput(response, shapedRuns));
 }

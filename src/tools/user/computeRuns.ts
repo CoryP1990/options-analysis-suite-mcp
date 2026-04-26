@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ProxyClient } from '../../proxy/proxyClient.js';
 import { toolHandler } from '../helpers.js';
-import { recordMatchesComputeFilters, summarizeComputeRunsResponse } from './computeRunsShaping.js';
+import { recordMatchesComputeFilters, sanitizeComputeRunsWireOutput, summarizeComputeRunsResponse } from './computeRunsShaping.js';
 
 export function register(server: McpServer, client: ProxyClient): void {
   server.registerTool(
@@ -43,7 +43,10 @@ export function register(server: McpServer, client: ProxyClient): void {
         res.count = res.data.length;
       }
 
-      if (full && res != null) return { _skipSizeGuard: true, data: res };
+      if (full && res != null) {
+        sanitizeComputeRunsWireOutput(res);
+        return { _skipSizeGuard: true, data: res };
+      }
       return summarizeComputeRunsResponse(res);
     }, { isSyncTool: true }),
   );

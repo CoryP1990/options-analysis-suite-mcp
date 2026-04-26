@@ -104,11 +104,18 @@ describe('flattenObjects', () => {
       someOther: { nested: true },
     };
     const result = flattenObjects(obj);
-    expect(result.calibration).toEqual({ rmse: 0.023, isFallback: false });
+    expect(result.calibration).toEqual({ rmse: 0.023 });
     expect(result.summary).toEqual({ totalScanned: 50, buySignals: 12 });
     expect(result.bestValues).toEqual({ bestCall: { strike: 380 } });
     expect(result.someOther).toBe('[nested object]');
     expect(result.spot).toBe(374.25);
+  });
+
+  test('renames calibration isFallback to a prose-readable fallback flag only when true', () => {
+    expect(flattenObjects({ calibration: { rmse: 0.023, isFallback: true } }).calibration)
+      .toEqual({ rmse: 0.023, fallback: true });
+    expect(flattenObjects({ calibration: { rmse: 0.023, isFallback: false } }).calibration)
+      .toEqual({ rmse: 0.023 });
   });
 
   test('keeps arrays intact', () => {
@@ -228,9 +235,8 @@ describe('shapeRecord', () => {
   test('preserves calibration in details for single-model records', () => {
     const record = makeSingleModelRecord();
     shapeRecord(record);
-    expect(record.details.calibration).toEqual({
+    expect(record.details.calibration as Record<string, unknown>).toEqual({
       rmse: 0.023,
-      isFallback: false,
       timeMs: 85,
       executionPath: 'worker',
     });
@@ -251,7 +257,14 @@ describe('shapeRecord', () => {
       timestamp: Date.now(),
       data: {
         spot: 659.22,
-        summary: { totalScanned: 117, buySignals: 97, sellSignals: 20, scanTimeMs: 1.4 },
+        summary: {
+          totalScanned: 117,
+          buySignals: 97,
+          sellSignals: 20,
+          signalCounts: { weakBuy: 3, weak_buy: 2, strongSell: 4 },
+          agreementCounts: { majority_buy: 5 },
+          scanTimeMs: 1.4,
+        },
         bestValues: {
           bestEdgePut: {
             edge: 1.2729,
@@ -300,6 +313,8 @@ describe('shapeRecord', () => {
     // Summary micro-stats dropped
     expect((record.data.summary as any).scanTimeMs).toBeUndefined();
     expect((record.data.summary as any).buySignals).toBe(97);
+    expect((record.data.summary as any).signalCounts).toEqual({ 'weak buy': 5, 'strong sell': 4 });
+    expect((record.data.summary as any).agreementCounts).toEqual({ 'majority buy': 5 });
   });
 
   test('preserves signal and priceDiffPct on Shape C portfolio-scan model entries', () => {

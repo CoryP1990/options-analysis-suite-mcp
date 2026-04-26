@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { recordMatchesComputeFilters, shapeComputeRunRecord, summarizeComputeRunsResponse } from './computeRunsShaping.js';
+import { recordMatchesComputeFilters, sanitizeComputeRunsWireOutput, shapeComputeRunRecord, summarizeComputeRunsResponse } from './computeRunsShaping.js';
 
 function makeRecord() {
   return {
@@ -231,7 +231,97 @@ describe('recordMatchesComputeFilters', () => {
   });
 });
 
+describe('sanitizeComputeRunsWireOutput', () => {
+  test('humanizes full-mode key levels and removes raw isFallback booleans', () => {
+    const payload = { data: [makeRecord()] };
+
+    sanitizeComputeRunsWireOutput(payload);
+
+    const text = JSON.stringify(payload);
+    expect(text).not.toContain('callWall');
+    expect(text).not.toContain('putWall');
+    expect(text).not.toContain('gammaFlip');
+    expect(text).not.toContain('gammaTilt');
+    expect(text).not.toContain('secondaryFlips');
+    expect(text).not.toContain('isFallback');
+
+    const keyLevels = (payload.data[0].data.exposureSweep[0] as any).keyLevels;
+    expect(keyLevels['call wall']).toBe(650);
+    expect(keyLevels['put wall']).toBe(620);
+    expect(keyLevels['gamma flip']).toBe(645.9);
+    expect(keyLevels['gamma tilt']).toBe(-1);
+    expect(keyLevels['secondary flips']).toEqual([]);
+
+    const hestonCalibration = (payload.data[0].positions[0].models as any).Heston.calibration;
+    expect(hestonCalibration.isFallback).toBeUndefined();
+    expect(hestonCalibration.fallback).toBeUndefined();
+  });
+
+  test('emits fallback only when the raw calibration actually fell back', () => {
+    const payload = { data: [makeRecord()] };
+    (payload.data[0].positions[0].models as any).Heston.calibration.isFallback = true;
+
+    sanitizeComputeRunsWireOutput(payload);
+
+    const hestonCalibration = (payload.data[0].positions[0].models as any).Heston.calibration;
+    expect(hestonCalibration.isFallback).toBeUndefined();
+    expect(hestonCalibration.fallback).toBe(true);
+  });
+});
+
 describe('summarizeComputeRunsResponse', () => {
+  function makeRichRecord(index: number) {
+    const modelEntries = Object.fromEntries(
+      Array.from({ length: 14 }, (_, modelIndex) => [
+        `Model${modelIndex + 1}`,
+        {
+          variantCount: 1,
+          representative: {
+            price: modelIndex + 1,
+            greeks: { Delta: 0.5 + modelIndex / 100, Gamma: 0.01 + modelIndex / 1000 },
+            dimensions: { exerciseStyle: 'european' },
+          },
+          calibration: {
+            rmse: 0.01 + modelIndex / 1000,
+            confidence: 0.9,
+            isFallback: false,
+            params: { alpha: modelIndex, beta: 0.5 },
+          },
+        },
+      ]),
+    );
+
+    const dispersion = Object.fromEntries(
+      Array.from({ length: 400 }, (_, dispersionIndex) => [
+        `Greek${dispersionIndex}`,
+        {
+          min: dispersionIndex,
+          max: dispersionIndex + 10,
+          mean: dispersionIndex + 5,
+          stddev: 1.25,
+          models: Array.from({ length: 80 }, (_, modelIndex) => `Model${modelIndex + 1}`),
+        },
+      ]),
+    );
+
+    return {
+      ...makeRecord(),
+      run_key: `rich-run-${index}`,
+      timestamp: 1774771200000 - index * 1000,
+      data: {
+        ...(makeRecord().data as Record<string, unknown>),
+        portfolioAggregates: { dispersion },
+      },
+      positions: Array.from({ length: 7 }, (_, positionIndex) => ({
+        ...(makeRecord().positions as Array<Record<string, unknown>>)[0],
+        positionId: `rich-pos-${index}-${positionIndex}`,
+        symbol: `SPY250330C00634${positionIndex}`,
+        marketPrice: 10 + positionIndex,
+        models: modelEntries,
+      })),
+    };
+  }
+
   test('adds a top-level summary while keeping shaped run rows', () => {
     const summarized = summarizeComputeRunsResponse({
       data: [makeRecord()],
@@ -271,12 +361,12 @@ describe('summarizeComputeRunsResponse', () => {
       ...base,
       run_key: `run-${index + 1}`,
       timestamp: 1774771200000 - index * 1000,
-      positions: [
-        {
+      positions: Array.from({ length: 4 }, (_, positionIndex) => ({
           ...(base.positions as Array<Record<string, unknown>>)[0],
+          positionId: `pos-${index}-${positionIndex}`,
+          symbol: `SPY250330C00634${positionIndex}`,
           models: modelEntries,
-        },
-      ],
+        })),
     }));
 
     const summarized = summarizeComputeRunsResponse({
@@ -285,8 +375,44 @@ describe('summarizeComputeRunsResponse', () => {
     }) as Record<string, any>;
 
     expect(summarized.summary.returnedRuns).toBe(5);
+    expect(summarized.data[0].positions).toHaveLength(3);
+    expect(summarized.data[0].omittedPositionCount).toBe(1);
     expect(summarized.data[0].positions[0].modelCount).toBe(14);
     expect(Object.keys(summarized.data[0].positions[0].models)).toHaveLength(5);
     expect(summarized.data[0].positions[0].omittedModelCount).toBe(9);
+  });
+
+  test('drops oldest rich runs until the shaped response fits the MCP budget', () => {
+    const summarized = summarizeComputeRunsResponse({
+      data: [makeRichRecord(0), makeRichRecord(1), makeRichRecord(2)],
+      count: 3,
+    }) as Record<string, any>;
+
+    expect(JSON.stringify(summarized).length).toBeLessThan(50 * 1024);
+    expect(summarized.data[0].runKey).toBe('rich-run-0');
+    expect(summarized.summary.returnedRuns).toBe(summarized.data.length);
+    expect(summarized._truncation_meta).toEqual(expect.objectContaining({
+      returned: summarized.data.length,
+      requested: 3,
+      selection: 'newest',
+      reason: 'size budget',
+    }));
+  });
+
+  test('compacts a single oversized run instead of falling through to generic size error', () => {
+    const summarized = summarizeComputeRunsResponse({
+      data: [makeRichRecord(0)],
+      count: 1,
+    }) as Record<string, any>;
+
+    expect(JSON.stringify(summarized).length).toBeLessThan(50 * 1024);
+    expect(summarized.data).toHaveLength(1);
+    expect(summarized.summary.returnedRuns).toBe(1);
+    expect(summarized._truncation_meta).toEqual(expect.objectContaining({
+      returned: 1,
+      requested: 1,
+      selection: 'newest',
+      reason: 'size budget',
+    }));
   });
 });

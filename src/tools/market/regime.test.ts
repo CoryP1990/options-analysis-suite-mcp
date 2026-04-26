@@ -151,16 +151,63 @@ describe('get_regime — GEX exposure hoist', () => {
 });
 
 describe('get_regime — scope=market include_symbols', () => {
-  test('include_symbols=true returns _skipSizeGuard (raw payload)', async () => {
+  test('include_symbols=true caps rows, strips raw vectors, and renames symbol tier scope', async () => {
+    const rows = Array.from({ length: 10 }, (_, index) => ({
+      symbol: `SYM${index}`,
+      scope: 'bellwether',
+      stress_score: index === 9 ? -9 : index,
+      vector: {
+        z: { tail_dominance: 1 },
+        _meta: {
+          gex: {
+            spotPrice: 500,
+            netGamma: 1e9,
+            netDelta: 5e8,
+            netVega: 1e7,
+            netVanna: 100,
+            netCharm: 50,
+            netVomma: 25,
+            callWall: 510,
+            putWall: 490,
+            gammaFlip: 495,
+            regime: 'positive',
+          },
+        },
+      },
+    }));
     const stub = {
       market: { stress_score: 0.5 },
-      symbols: { bellwether: [{ symbol: 'SPY' }] },
+      symbols: { bellwether: rows },
     };
     const { handler } = createHarness(stub);
     const result = await handler({ scope: 'market', include_symbols: true });
     const parsed = JSON.parse(result.content[0].text);
-    expect(parsed.symbols).toBeDefined();
+    expect(parsed.symbols.bellwether).toHaveLength(8);
+    expect(parsed.symbols.bellwether[0].symbol).toBe('SYM9');
+    expect(parsed.symbols.bellwether.some((row: any) => row.symbol === 'SYM0')).toBe(false);
+    for (const row of parsed.symbols.bellwether) {
+      expect(row.scope).toBeUndefined();
+      expect(row.symbolTier).toBe('bellwether');
+      expect(row.vector).toBeUndefined();
+      expect(row.exposures['call wall']).toBe(510);
+    }
+    expect(parsed._symbols_truncation_meta.selection).toBe('top-N per tier by |stress_score|');
+    expect(parsed._symbols_truncation_meta.tiers.bellwether).toEqual({ total: 10, returned: 8 });
     expect(parsed.market.stress_score).toBe(0.5);
+    expect(JSON.stringify(parsed)).not.toContain('callWall');
+    expect(JSON.stringify(parsed)).not.toContain('tail_dominance');
+  });
+
+  test('scope=symbol with no daily history returns structured no-data record', async () => {
+    const { handler } = createHarness({ symbol: 'SPY', history: [] });
+    const result = await handler({ scope: 'symbol', symbol: 'SPY' });
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed).toEqual({
+      symbol: 'SPY',
+      view: 'symbol',
+      dataAvailable: false,
+      message: 'No daily symbol-regime data available for this symbol. Symbol-regime classification covers a curated universe; not every ticker is included.',
+    });
   });
 });
 
