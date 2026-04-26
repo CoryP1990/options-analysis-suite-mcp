@@ -5,6 +5,7 @@ import {
   dedupeAnalysisHistoryRecords,
   dedupePortfolioSnapshotRecords,
   dedupeRiskSnapshotRecords,
+  humanizeAnalysisWireOutput,
   normalizePortfolioSnapshotSymbols,
   summarizeNestedValue,
   shapeAnalysisResultRecord,
@@ -211,6 +212,73 @@ describe('shapeAnalysisResultRecord', () => {
     expect(record.data.weirdNested as any).toBe('[nested object]');
   });
 
+  test('humanizes analysis model identifiers and Variance Gamma calibration params', () => {
+    const record = {
+      model: 'VarianceGamma',
+      data: {
+        symbol: 'SPY',
+        model: 'VarianceGamma',
+        optionPrice: 3.25,
+        greeks: { Delta: 0.42 },
+      },
+      artifacts: {
+        calibrationSummary: {
+          model: 'VarianceGamma',
+          params: {
+            vgNu: 0.11,
+            vgSigma: 0.22,
+            vgTheta: -0.33,
+          },
+        },
+        comparison: {
+          bestModel: 'BlackScholes',
+          worstModel: 'LocalVol',
+        },
+      },
+    };
+
+    shapeAnalysisResultRecord(record);
+
+    expect(record.model).toBe('Variance Gamma');
+    expect(record.data.model).toBe('Variance Gamma');
+    expect(record.artifacts.calibrationSummary.model).toBe('Variance Gamma');
+    expect(record.artifacts.calibrationSummary.params as any).toEqual({
+      nu: 0.11,
+      sigma: 0.22,
+      theta: -0.33,
+    });
+    expect(record.artifacts.comparison).toEqual({
+      bestModel: 'Black-Scholes',
+      worstModel: 'Local Volatility',
+    });
+    expect(JSON.stringify(record)).not.toContain('VarianceGamma');
+    expect(JSON.stringify(record)).not.toContain('BlackScholes');
+    expect(JSON.stringify(record)).not.toContain('LocalVol');
+    expect(JSON.stringify(record)).not.toContain('vgNu');
+  });
+
+  test('humanizes model fields inside raw models object arrays', () => {
+    const payload = {
+      data: [{
+        artifacts: {
+          models: [
+            { model: 'VarianceGamma', price: 3.25 },
+            { model: 'BlackScholes', price: 3.12 },
+          ],
+        },
+      }],
+    };
+
+    humanizeAnalysisWireOutput(payload);
+
+    expect(payload.data[0].artifacts.models).toEqual([
+      { model: 'Variance Gamma', price: 3.25 },
+      { model: 'Black-Scholes', price: 3.12 },
+    ]);
+    expect(JSON.stringify(payload)).not.toContain('VarianceGamma');
+    expect(JSON.stringify(payload)).not.toContain('BlackScholes');
+  });
+
   test('is null-safe', () => {
     const record = { data: null, facts: undefined, artifacts: null } as any;
     expect(() => shapeAnalysisResultRecord(record)).not.toThrow();
@@ -319,6 +387,9 @@ describe('stripSyncRecordMetadata', () => {
 describe('replaceDuplicatedDataField', () => {
   test('replaces duplicated nested details copy with a note', () => {
     const record = {
+      details: {
+        fullAllocation: [{ symbol: 'SPY' }],
+      },
       data: {
         spot: 100,
         details: {
@@ -329,6 +400,20 @@ describe('replaceDuplicatedDataField', () => {
 
     replaceDuplicatedDataField(record, 'details', '[see top-level details]');
     expect(record.data.details as any).toBe('[see top-level details]');
+  });
+
+  test('preserves nested details when no top-level companion exists', () => {
+    const record = {
+      data: {
+        spot: 100,
+        details: {
+          fullAllocation: [{ symbol: 'SPY' }],
+        },
+      },
+    };
+
+    replaceDuplicatedDataField(record, 'details', '[see top-level details]');
+    expect(record.data.details).toEqual({ fullAllocation: [{ symbol: 'SPY' }] });
   });
 
   test('does nothing for scalar fields or missing data', () => {

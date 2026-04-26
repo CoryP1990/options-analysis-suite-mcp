@@ -13,7 +13,6 @@ function createHarness(stubResponse: any = { data: [] }) {
       return stubResponse;
     },
     post: async () => ({}),
-    hasSearchKey: false,
   } as unknown as ProxyClient;
 
   const captured: { handler: ToolHandler | null } = { handler: null };
@@ -125,12 +124,26 @@ describe('get_snapshot — GEX details dual handling', () => {
 });
 
 describe('get_snapshot — full mode uses _skipSizeGuard', () => {
-  test('type=gex full=true returns raw payload', async () => {
-    const stub = { data: [{ id: 1 }, { id: 2 }], count: 2, meta: 'x' };
+  test('type=gex full=true strips synced row ids', async () => {
+    const stub = {
+      data: [
+        { id: 1, user_id: 10, created_at: '2026-04-01T00:00:00.000Z', data: { id: 5, gammaFlip: 495 } },
+        { id: 2, data: { id: 6, callWall: 510 } },
+      ],
+      count: 2,
+      meta: 'x',
+    };
     const { handler } = createHarness(stub);
     const result = await handler({ type: 'gex', symbol: 'SPY', full: true });
     const parsed = JSON.parse(result.content[0].text);
-    expect(parsed).toEqual(stub);
+    expect(parsed.data[0].id).toBeUndefined();
+    expect(parsed.data[0].user_id).toBeUndefined();
+    expect(parsed.data[0].created_at).toBeUndefined();
+    expect(parsed.data[0].data.id).toBeUndefined();
+    expect(parsed.data[1].id).toBeUndefined();
+    expect(parsed.data[1].data.id).toBeUndefined();
+    expect(parsed.data[0].data['gamma flip']).toBe(495);
+    expect(parsed.data[1].data['call wall']).toBe(510);
   });
 
   test('type=portfolio full=true returns raw payload', async () => {
@@ -153,7 +166,9 @@ describe('get_snapshot — full mode uses _skipSizeGuard', () => {
           timestamp: 1776550587306,
           totalValue: 107864.29,
           delta: 309.6892,
+          details: { greeks: { totalDelta: 309.6892 }, fullAllocation: [{ symbol: 'AAPL' }] },
         },
+        details: { greeks: { totalDelta: 309.6892 }, fullAllocation: [{ symbol: 'AAPL' }] },
       }],
       count: 1,
     };
@@ -165,6 +180,8 @@ describe('get_snapshot — full mode uses _skipSizeGuard', () => {
     expect(parsed.data[0].created_at).toBeUndefined();
     expect(parsed.data[0].data.id).toBeUndefined();
     expect(parsed.data[0].data.totalValue).toBe(107864.29);
+    expect(parsed.data[0].data.details).toBe('[see top-level details]');
+    expect(parsed.data[0].details.greeks.totalDelta).toBe(309.6892);
   });
 
   test('type=risk full=true strips raw position contributions', async () => {
@@ -178,6 +195,7 @@ describe('get_snapshot — full mode uses _skipSizeGuard', () => {
           timestamp: 1776550584312,
           portfolioValue: 161179.82,
           dollarDelta: 148236.55,
+          details: { historicalVarDetails: { worstDay: 13.46 } },
           positionContributions: [{ symbol: 'AAPL', contribution: 1200 }],
           position_contributions: [{ symbol: 'META', contribution: -800 }],
           nested: {
@@ -185,6 +203,7 @@ describe('get_snapshot — full mode uses _skipSizeGuard', () => {
           },
         },
         details: {
+          historicalVarDetails: { worstDay: 13.46 },
           positionContributions: [{ symbol: 'AAPL', contribution: 1200 }],
           position_contributions: [{ symbol: 'META', contribution: -800 }],
         },
@@ -199,8 +218,10 @@ describe('get_snapshot — full mode uses _skipSizeGuard', () => {
     expect(parsed.data[0].data.positionContributions).toBeUndefined();
     expect(parsed.data[0].data.position_contributions).toBeUndefined();
     expect(parsed.data[0].data.nested.positionContributions).toBeUndefined();
+    expect(parsed.data[0].data.details).toBe('[see top-level details]');
     expect(parsed.data[0].details.positionContributions).toBeUndefined();
     expect(parsed.data[0].details.position_contributions).toBeUndefined();
+    expect(parsed.data[0].details.historicalVarDetails.worstDay).toBe(13.46);
     expect(parsed.data[0].data.dollarDelta).toBe(148236.55);
     expect(result.content[0].text).not.toContain('positionContributions');
     expect(result.content[0].text).not.toContain('position_contributions');

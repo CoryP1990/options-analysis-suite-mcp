@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ProxyClient } from '../../proxy/proxyClient.js';
 import { toolHandler } from '../helpers.js';
-import { stripSyncRecordMetadata } from './syncResponseShaping.js';
+import { humanizeAnalysisWireOutput, stripSyncRecordMetadata } from './syncResponseShaping.js';
 import { summarizeAnalysisRollupsResponse } from './analysisRollupsShaping.js';
 
 export function register(server: McpServer, client: ProxyClient): void {
@@ -21,7 +21,10 @@ export function register(server: McpServer, client: ProxyClient): void {
     },
     toolHandler(async ({ symbol, period, limit, full }) => {
       const res = await client.get('/sync/analysis-data', { type: 'rollups', symbol, period, limit: String(limit) }) as any;
-      if (full && res != null) return { _skipSizeGuard: true, data: res };
+      if (full && res != null) {
+        humanizeAnalysisWireOutput(res);
+        return { _skipSizeGuard: true, data: res };
+      }
       if (res && Array.isArray(res.data)) {
         for (const record of res.data) {
           stripSyncRecordMetadata(record, { topLevelKeys: ['id', 'user_id', 'created_at', 'key'], dataKeys: ['id', 'user_id', 'key'] });

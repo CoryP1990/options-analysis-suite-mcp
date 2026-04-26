@@ -14,7 +14,6 @@ function createHarness(stubByPath: Record<string, unknown> = {}, errorByPath: Re
       return stubByPath[path] ?? {};
     },
     post: async () => ({}),
-    hasSearchKey: false,
   } as unknown as ProxyClient;
 
   const captured: { handler: ToolHandler | null } = { handler: null };

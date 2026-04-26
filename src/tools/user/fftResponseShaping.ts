@@ -4,6 +4,7 @@
  * Pure functions for trimming FFT scan results to fit the MCP 50 KB
  * response budget while preserving the most useful signal data.
  */
+import { modelDisplayName } from '../modelLabels.js';
 
 /** Byte threshold at which we start truncating arrays.
  *  Below the 50 KB hard limit in helpers.ts to leave headroom. */
@@ -71,34 +72,11 @@ function humanizeSignal(signal: unknown): unknown {
     .trim();
 }
 
-const MODEL_LABELS: Record<string, string> = {
-  blackScholes: 'Black-Scholes',
-  bs: 'Black-Scholes',
-  black76: 'Black-76',
-  heston: 'Heston',
-  bates: 'Bates',
-  varianceGamma: 'Variance Gamma',
-  vg: 'Variance Gamma',
-  jumpDiffusion: 'Jump Diffusion',
-  merton: 'Merton',
-  kou: 'Kou',
-  cgmy: 'CGMY',
-  sabr: 'SABR',
-  fft: 'FFT',
-  pde: 'PDE',
-  binomial: 'Binomial',
-};
-
-function humanizeModelName(model: unknown): unknown {
-  if (typeof model !== 'string' || !model) return model;
-  return MODEL_LABELS[model] ?? model;
-}
-
 function humanizeModelKeyedObject(value: unknown, valueTransform?: (item: unknown) => unknown): unknown {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
   const out: Record<string, unknown> = {};
   for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
-    const humanKey = humanizeModelName(key);
+    const humanKey = modelDisplayName(key);
     out[typeof humanKey === 'string' ? humanKey : key] = valueTransform ? valueTransform(item) : item;
   }
   return out;
@@ -119,10 +97,10 @@ export function humanizeSignalsDeep(value: unknown, depth = 0): void {
     if ((key === 'signal' || key === 'agreement') && typeof child === 'string') {
       obj[key] = humanizeSignal(child);
     } else if (key === 'model' && typeof child === 'string') {
-      obj[key] = humanizeModelName(child);
+      obj[key] = modelDisplayName(child);
     } else if (key === 'models' && Array.isArray(child)) {
       obj[key] = child.map((item) => {
-        if (typeof item === 'string') return humanizeModelName(item);
+        if (typeof item === 'string') return modelDisplayName(item);
         humanizeSignalsDeep(item, depth + 1);
         return item;
       });
@@ -205,7 +183,7 @@ function compactPositions(positions: unknown): unknown {
           if (!m || typeof m !== 'object' || Array.isArray(m)) return m;
           const modelSrc = m as Record<string, unknown>;
           const modelOut: Record<string, unknown> = {};
-          if ('model' in modelSrc) modelOut.model = humanizeModelName(modelSrc.model);
+          if ('model' in modelSrc) modelOut.model = modelDisplayName(modelSrc.model);
           if ('price' in modelSrc) modelOut.price = modelSrc.price;
           // Signal-bearing fields an AI needs to understand model disagreement
           // — cheap to keep (~5 bytes/field) and core to the tool's purpose.

@@ -7,6 +7,7 @@ import {
   dedupeAnalysisHistoryRecords,
   shapeAnalysisResultRecord,
 } from './syncResponseShaping.js';
+import { modelBackendId } from '../modelLabels.js';
 
 export function register(server: McpServer, client: ProxyClient): void {
   server.registerTool(
@@ -16,7 +17,7 @@ export function register(server: McpServer, client: ProxyClient): void {
       description: 'Query your analysis history with filters. Find specific analyses by greek values, volatility ranges, or other criteria. For example: "analyses where delta > 0.7" or "all Heston runs with IV below 30%". Default view collapses near-identical reruns from the same pricing sweep so the results stay diverse and readable.',
       inputSchema: {
         symbol: z.string().optional().describe('Filter by ticker symbol'),
-        model: z.string().optional().describe('Filter by pricing model (e.g., BlackScholes, Heston)'),
+        model: z.string().optional().describe('Filter by pricing model (e.g., Black-Scholes, Heston)'),
         since: z.string().optional().describe('Only results after this date (ISO format)'),
         minDelta: z.number().optional().describe('Minimum delta value'),
         maxDelta: z.number().optional().describe('Maximum delta value'),
@@ -33,7 +34,7 @@ export function register(server: McpServer, client: ProxyClient): void {
       const fetchLimit = Math.min(limit * 5, 200);
       const params: Record<string, string> = { type: 'results', limit: String(fetchLimit) };
       if (symbol) params.symbol = symbol;
-      if (model) params.model = model;
+      if (model) params.model = modelBackendId(model);
       if (since) params.since = since;
 
       const res = await client.get('/sync/analysis-data', params) as any;

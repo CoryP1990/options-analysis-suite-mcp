@@ -43,7 +43,7 @@ describe('shapeAnalysisRollupRecord', () => {
       minVol: 0.3354,
       maxVol: 0.9055,
       avgSpot: 248.87,
-      models: ['BlackScholes', 'Heston', 'SABR', 'Binomial', 'JumpDiffusion'],
+      models: ['Black-Scholes', 'Heston', 'SABR', 'Binomial', 'Jump Diffusion'],
       modelCount: 5,
     });
   });
@@ -97,7 +97,7 @@ describe('summarizeAnalysisRollupsResponse', () => {
       totalAnalyses: 75,
       latestPeriod: '2026-03-27',
       earliestPeriod: '2026-03-26',
-      modelsUsed: ['BlackScholes', 'Heston', 'SABR', 'Binomial', 'JumpDiffusion'],
+      modelsUsed: ['Black-Scholes', 'Heston', 'SABR', 'Binomial', 'Jump Diffusion'],
       minObservedVol: 0.22,
       maxObservedVol: 0.9055,
       avgSpotChangePct: 3.7,

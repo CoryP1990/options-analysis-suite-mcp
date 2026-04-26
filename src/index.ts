@@ -18,7 +18,6 @@ function getConfig(): McpConfig {
     password: process.env.OAS_PASSWORD || '',
     proxyUrl: process.env.OAS_PROXY_URL || 'https://proxy.optionsanalysissuite.com',
     authServerUrl: process.env.OAS_AUTH_SERVER_URL || 'https://api.optionsanalysissuite.com',
-    searchApiKey: process.env.OAS_SEARCH_API_KEY,
   };
 }
 
@@ -44,7 +43,7 @@ async function main(): Promise<void> {
   }
 
   // Create proxy client
-  const proxyClient = new ProxyClient(config.proxyUrl, tokenManager, config.searchApiKey);
+  const proxyClient = new ProxyClient(config.proxyUrl, tokenManager);
 
   // Create and start MCP server
   const server = createMcpServer(proxyClient, tokenManager);

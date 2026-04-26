@@ -1,3 +1,5 @@
+import { displayNameModelMap, modelDisplayName, modelDisplayNames } from '../modelLabels.js';
+
 type RawComputeRunRecord = {
   [key: string]: unknown;
   run_key?: unknown;
@@ -27,19 +29,6 @@ const MAX_SINGLE_RUN_EMERGENCY_POSITIONS = 1;
 const MAX_SINGLE_RUN_EMERGENCY_MODELS = 3;
 const BUDGET_DISPERSION_KEYS = new Set(['Price', 'Delta', 'Gamma', 'Theta', 'Vega', 'Rho', 'Vanna', 'Charm', 'Vomma', 'Veta']);
 const FALLBACK_STATUS = 'fallback (default parameters)';
-const MODEL_NAME_LABELS: Record<string, string> = {
-  BlackScholes: 'Black-Scholes',
-  JumpDiffusion: 'Jump Diffusion',
-  VarianceGamma: 'Variance Gamma',
-  MonteCarlo: 'Monte Carlo',
-  'MonteCarlo-JumpDiffusion': 'Monte Carlo - Jump Diffusion',
-  'MonteCarlo-Heston': 'Monte Carlo - Heston',
-  'MonteCarlo-MeanReverting': 'Monte Carlo - Mean Reverting',
-  LocalVolatility: 'Local Volatility',
-  LocalVol: 'Local Volatility',
-  'LocalVol-Dupire': 'Local Volatility - Dupire',
-  'LocalVol-CEV': 'Local Volatility - CEV',
-};
 /** Headroom under the 50 KB MCP response limit so the generic size guard
  *  never silently collapses the response. Mirrors fftResponseShaping. */
 const COMPUTE_RUNS_SAFE_SIZE_BUDGET = 48 * 1024;
@@ -80,33 +69,6 @@ function humanizeIdentifier(value: unknown): string | undefined {
     .toLowerCase()
     .replace(/\s+/g, ' ')
     .trim();
-}
-
-function modelDisplayName(modelName: string): string {
-  if (MODEL_NAME_LABELS[modelName]) return MODEL_NAME_LABELS[modelName];
-  if (/^[A-Z0-9]+$/.test(modelName)) return modelName;
-  return modelName
-    .replace(/[_-]+/g, ' ')
-    .replace(/([a-z])([A-Z])/g, '$1 $2')
-    .replace(/\bBlack Scholes\b/g, 'Black-Scholes')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function modelDisplayNames(values: unknown): string[] {
-  return getArray<string>(values)
-    .filter((item) => typeof item === 'string' && item.length > 0)
-    .map((item) => modelDisplayName(item));
-}
-
-function displayNameModelMap(value: unknown): Record<string, unknown> | undefined {
-  const models = getObject(value);
-  if (!models) return undefined;
-  const out: Record<string, unknown> = {};
-  for (const [modelName, modelValue] of Object.entries(models)) {
-    out[modelDisplayName(modelName)] = modelValue;
-  }
-  return out;
 }
 
 function getPositions(record: Record<string, unknown>): Record<string, unknown>[] {
@@ -276,16 +238,17 @@ export function sanitizeComputeRunsWireOutput(value: unknown, depth = 0): void {
       if (shaped) obj.models = shaped;
     }
   }
-  if ('isFallback' in obj) {
-    const fallback = obj.isFallback === true;
-    const fallbackReason = fallback ? humanizeIdentifier(obj.fallbackReason) : undefined;
-    delete obj.isFallback;
-    delete obj.fallbackReason;
-    if (fallback) {
-      obj.status = FALLBACK_STATUS;
-      if (fallbackReason) obj.statusReason = fallbackReason;
-    }
+  const isFallbackTriggered = obj.isFallback === true
+    || obj.status === 'fallback'
+    || obj.fallback === true;
+  if (isFallbackTriggered) {
+    obj.status = FALLBACK_STATUS;
+    const reason = humanizeIdentifier(obj.fallbackReason)
+      ?? humanizeIdentifier(obj.statusReason);
+    if (reason) obj.statusReason = reason;
   }
+  delete obj.isFallback;
+  delete obj.fallback;
   delete obj.fallbackReason;
 
   for (const child of Object.values(obj)) {
@@ -762,7 +725,7 @@ export function recordMatchesComputeFilters(record: unknown, filters: ComputeRun
   return true;
 }
 
-export function summarizeComputeRunsResponse(payload: unknown): unknown {
+export function summarizeComputeRunsResponse(payload: unknown, view: 'summary' | 'detailed' = 'summary'): unknown {
   const response = getObject(payload);
   if (!response || !Array.isArray(response.data)) return payload;
   // Apply per-position model AND positions trimming as soon as more than one
@@ -772,10 +735,16 @@ export function summarizeComputeRunsResponse(payload: unknown): unknown {
   const isMultiRun = response.data.length >= 2;
   const maxModelsPerPosition = isMultiRun ? MAX_MULTI_RUN_MODELS : undefined;
   const maxPositionsPerRun = isMultiRun ? MAX_MULTI_RUN_POSITIONS : MAX_DEFAULT_POSITIONS;
-  const positionView = isMultiRun ? 'summary' : 'detailed';
+  const detailedSingleRun = view === 'detailed' && response.data.length === 1;
+  const positionView = detailedSingleRun ? 'detailed' : 'summary';
 
   const shapedRuns = response.data
     .map((record) => shapeComputeRunRecord(record, maxPositionsPerRun, maxModelsPerPosition, positionView))
+    .map((record) => (
+      !detailedSingleRun && record != null && typeof record === 'object' && !Array.isArray(record)
+        ? compactPortfolioDispersionForBudget(record as Record<string, unknown>)
+        : record
+    ))
     .filter((record): record is Record<string, unknown> => record != null && typeof record === 'object' && !Array.isArray(record));
 
   return trimComputeRunsToBudget(buildComputeRunsOutput(response, shapedRuns));

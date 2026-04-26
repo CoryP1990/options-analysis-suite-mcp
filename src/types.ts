@@ -8,7 +8,6 @@ export interface McpConfig {
   password: string;
   proxyUrl: string;
   authServerUrl: string;
-  searchApiKey?: string;
 }
 
 /** JWT tokens from auth server */

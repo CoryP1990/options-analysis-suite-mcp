@@ -24,7 +24,6 @@ import {
 
 const PROXY_URL = process.env.OAS_PROXY_URL || 'https://proxy.optionsanalysissuite.com';
 const AUTH_SERVER_URL = process.env.OAS_AUTH_SERVER_URL || 'https://api.optionsanalysissuite.com';
-const SEARCH_API_KEY = process.env.OAS_SEARCH_API_KEY;
 const PUBLIC_BASE_URL = process.env.OAS_MCP_BASE_URL || 'https://mcp.optionsanalysissuite.com';
 const PORT = parseInt(process.env.PORT || '8080', 10);
 
@@ -88,7 +87,7 @@ async function getAuth(apiKey: string): Promise<AuthEntry> {
     const tokenManager = new TokenManager(AUTH_SERVER_URL, creds.email, creds.password);
     await tokenManager.initialize();
 
-    const proxyClient = new ProxyClient(PROXY_URL, tokenManager, SEARCH_API_KEY);
+    const proxyClient = new ProxyClient(PROXY_URL, tokenManager);
     const entry: AuthEntry = { tokenManager, proxyClient };
     authCache.set(apiKey, entry);
     return entry;

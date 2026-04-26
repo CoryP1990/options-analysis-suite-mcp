@@ -1,3 +1,5 @@
+import { modelDisplayNames } from '../modelLabels.js';
+
 type RawRollupRow = {
   [key: string]: unknown;
   symbol?: unknown;
@@ -40,11 +42,7 @@ function getObject(value: unknown): Record<string, unknown> | null {
 }
 
 function getUniqueModels(value: unknown): string[] | undefined {
-  if (!Array.isArray(value)) return undefined;
-  const models = value
-    .filter((item): item is string => typeof item === 'string')
-    .map((item) => item.trim())
-    .filter(Boolean);
+  const models = modelDisplayNames(value);
   if (models.length === 0) return undefined;
   return Array.from(new Set(models));
 }

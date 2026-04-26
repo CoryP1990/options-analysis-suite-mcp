@@ -2,7 +2,19 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ProxyClient } from '../../proxy/proxyClient.js';
 import { toolHandler } from '../helpers.js';
-import { summarizeThresholdHistory } from './thresholdHistoryShaping.js';
+import { displayThresholdSource, summarizeThresholdHistory } from './thresholdHistoryShaping.js';
+
+function sanitizeThresholdSource(value: unknown, depth = 0): void {
+  if (depth > 8 || value == null || typeof value !== 'object') return;
+  if (Array.isArray(value)) {
+    for (const item of value) sanitizeThresholdSource(item, depth + 1);
+    return;
+  }
+
+  const obj = value as Record<string, unknown>;
+  if ('source' in obj) obj.source = displayThresholdSource(obj.source);
+  for (const child of Object.values(obj)) sanitizeThresholdSource(child, depth + 1);
+}
 
 export function register(server: McpServer, client: ProxyClient): void {
   server.registerTool(
@@ -32,6 +44,7 @@ export function register(server: McpServer, client: ProxyClient): void {
         dates: dates.join(','),
       });
       if (full) {
+        sanitizeThresholdSource(response);
         return { _skipSizeGuard: true, data: response };
       }
       return summarizeThresholdHistory(response as Record<string, unknown>, dates);

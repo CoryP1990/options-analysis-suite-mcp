@@ -9,15 +9,14 @@ import { register, SCREENER_IDS } from './screeners.js';
  */
 type ToolHandler = (args: Record<string, unknown>) => Promise<{ isError?: boolean; content: Array<{ type: 'text'; text: string }> }>;
 
-function createHarness() {
+function createHarness(stubResponse: unknown = { data: [], metric: 'stub', currentDate: '2026-04-18' }) {
   const proxyCalls: Array<{ path: string; params?: Record<string, string> }> = [];
   const fakeClient: ProxyClient = {
     get: async (path: string, params?: Record<string, string>) => {
       proxyCalls.push({ path, params });
-      return { data: [], metric: path, currentDate: '2026-04-18' };
+      return stubResponse;
     },
     post: async () => ({}),
-    hasSearchKey: false,
   } as unknown as ProxyClient;
 
   const captured: { handler: ToolHandler | null } = { handler: null };
@@ -80,6 +79,48 @@ describe('run_screener — single-view leaderboards', () => {
   ])('%s routes to %s', async (screener, expectedPath) => {
     const call = await run({ screener });
     expect(call.path).toBe(expectedPath);
+  });
+});
+
+describe('run_screener — output labels', () => {
+  test('regime-stress humanizes backend feature identifiers in topDriver', async () => {
+    const harness = createHarness({
+      data: [
+        { symbol: 'SPY', topDriver: 'skew_pressure' },
+        { symbol: 'QQQ', topDriver: 'term_structure' },
+        { symbol: 'IWM', topDriver: 'vol_level' },
+      ],
+    });
+
+    const result = await harness.handler({ screener: 'regime-stress' });
+    const parsed = JSON.parse(result.content[0].text);
+
+    expect(parsed.data.map((row: any) => row.topDriver)).toEqual([
+      'Skew Pressure',
+      'Term Structure',
+      'Vol Level',
+    ]);
+    expect(result.content[0].text).not.toContain('skew_pressure');
+    expect(result.content[0].text).not.toContain('term_structure');
+  });
+
+  test('model-divergence humanizes model identifiers in best/worst model fields', async () => {
+    const harness = createHarness({
+      data: [
+        { symbol: 'SPY', bestModel: 'merton', worstModel: 'essvi' },
+        { symbol: 'QQQ', bestModel: 'heston', worstModel: 'kou' },
+      ],
+    });
+
+    const result = await harness.handler({ screener: 'model-divergence' });
+    const parsed = JSON.parse(result.content[0].text);
+
+    expect(parsed.data).toEqual([
+      { symbol: 'SPY', bestModel: 'Merton', worstModel: 'ESSVI' },
+      { symbol: 'QQQ', bestModel: 'Heston', worstModel: 'Kou' },
+    ]);
+    expect(result.content[0].text).not.toContain('"merton"');
+    expect(result.content[0].text).not.toContain('"essvi"');
   });
 });
 

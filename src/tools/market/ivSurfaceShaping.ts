@@ -48,7 +48,7 @@ function buildExpirationSummary(expiration: string, rows: IvSurfaceRow[], spotPr
   const preview = [
     putNode && {
       expiration,
-      bucket: 'putWing',
+      bucket: 'put wing',
       strike: putNode.strike,
       relativeStrike: round(putNode.strike / spotPrice, 3),
       yte: round(putNode.yte, 5),
@@ -68,7 +68,7 @@ function buildExpirationSummary(expiration: string, rows: IvSurfaceRow[], spotPr
     },
     callNode && {
       expiration,
-      bucket: 'callWing',
+      bucket: 'call wing',
       strike: callNode.strike,
       relativeStrike: round(callNode.strike / spotPrice, 3),
       yte: round(callNode.yte, 5),

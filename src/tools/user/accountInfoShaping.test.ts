@@ -17,14 +17,13 @@ describe('shapeAccountInfo', () => {
         currentPeriodEnd: '2026-12-31T00:00:00.000Z',
         daysRemaining: 279,
       },
-    }, true) as Record<string, any>;
+    }) as Record<string, any>;
 
     expect(shaped.authenticated).toBe(true);
     expect(shaped.subscriptionActive).toBe(true);
     expect(shaped.email).toBe('user@example.com');
     expect(shaped.subscription.tier).toBe('annual');
     expect(shaped.subscription.status).toBe('active');
-    expect(shaped.hasWebSearch).toBe(true);
   });
 
   it('treats developer or bypass users as subscription-active even without a normal subscription row', () => {
@@ -37,7 +36,7 @@ describe('shapeAccountInfo', () => {
         bypassSubscription: false,
       },
       subscription: null,
-    }, false) as Record<string, any>;
+    }) as Record<string, any>;
 
     expect(shaped.authenticated).toBe(true);
     expect(shaped.isDeveloper).toBe(true);
@@ -46,11 +45,10 @@ describe('shapeAccountInfo', () => {
   });
 
   it('returns a truthful unauthenticated state when no cached profile exists', () => {
-    const shaped = shapeAccountInfo(null, false) as Record<string, any>;
+    const shaped = shapeAccountInfo(null) as Record<string, any>;
 
     expect(shaped.authenticated).toBe(false);
     expect(shaped.subscriptionActive).toBe(false);
-    expect(shaped.hasWebSearch).toBe(false);
     expect(String(shaped._note)).toContain('not available');
   });
 });

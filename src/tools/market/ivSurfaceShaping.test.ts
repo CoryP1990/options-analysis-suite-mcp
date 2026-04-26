@@ -50,9 +50,9 @@ describe('summarizeIvSurface', () => {
       },
     ]);
     expect(summary.surfacePreview).toHaveLength(6);
-    expect(summary.surfacePreview[0].bucket).toBe('putWing');
+    expect(summary.surfacePreview[0].bucket).toBe('put wing');
     expect(summary.surfacePreview[1].bucket).toBe('atm');
-    expect(summary.surfacePreview[2].bucket).toBe('callWing');
+    expect(summary.surfacePreview[2].bucket).toBe('call wing');
   });
 
   test('handles sparse expirations without duplicating strikes', () => {
@@ -75,7 +75,7 @@ describe('summarizeIvSurface', () => {
     expect(summary.skewSummary).toEqual([]);
     expect(summary.surfacePreview).toEqual([
       { expiration: '2026-04-01', bucket: 'atm', strike: 100, relativeStrike: 1, yte: 0.01, iv: 0.2, putIV: 0.21, callIV: 0.19 },
-      { expiration: '2026-04-01', bucket: 'callWing', strike: 103, relativeStrike: 1.03, yte: 0.01, iv: 0.205, putIV: 0.215, callIV: 0.195 },
+      { expiration: '2026-04-01', bucket: 'call wing', strike: 103, relativeStrike: 1.03, yte: 0.01, iv: 0.205, putIV: 0.215, callIV: 0.195 },
     ]);
   });
 });

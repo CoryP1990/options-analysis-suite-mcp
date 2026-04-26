@@ -255,6 +255,9 @@ describe('sanitizeComputeRunsWireOutput', () => {
   test('humanizes full-mode key levels and removes raw isFallback booleans', () => {
     const payload = { data: [makeRecord()] };
     (payload.data[0] as any).data.portfolioAggregates.excluded = { byReason: { missingIv: 2 } };
+    (payload.data[0].positions[0].models as any).Heston.calibration.fallback = true;
+    (payload.data[0].positions[0].models as any).Heston.calibration.status = 'fallback (default parameters)';
+    (payload.data[0].positions[0].models as any).Heston.calibration.statusReason = 'insufficient surface';
     (payload.data[0].positions[0].models as any).Heston.calibration.fallbackReason = 'insufficient_surface';
     (payload.data[0].positions[0].models as any).Heston.calibration.seedRejections = [{ reason: 'bad_seed' }];
     (payload.data[0].positions[0].models as any).Heston.calibration.executionPath = 'worker';
@@ -289,17 +292,20 @@ describe('sanitizeComputeRunsWireOutput', () => {
     const hestonCalibration = (payload.data[0].positions[0].models as any).Heston.calibration;
     expect(hestonCalibration.isFallback).toBeUndefined();
     expect(hestonCalibration.fallback).toBeUndefined();
-    expect(hestonCalibration.status).toBeUndefined();
-    expect(hestonCalibration.statusReason).toBeUndefined();
+    expect(hestonCalibration.status).toBe('fallback (default parameters)');
+    expect(hestonCalibration.statusReason).toBe('insufficient surface');
     expect(hestonCalibration.fallbackReason).toBeUndefined();
     expect(hestonCalibration.seedRejections).toBeUndefined();
     expect(hestonCalibration.executionPath).toBeUndefined();
     expect(hestonCalibration.economicPenalty).toBeUndefined();
   });
 
-  test('emits fallback status only when the raw calibration actually fell back', () => {
+  test('preserves fallback context in full-mode sanitizer while dropping raw internals', () => {
     const payload = { data: [makeRecord()] };
     (payload.data[0].positions[0].models as any).Heston.calibration.isFallback = true;
+    (payload.data[0].positions[0].models as any).Heston.calibration.fallback = true;
+    (payload.data[0].positions[0].models as any).Heston.calibration.status = 'fallback';
+    (payload.data[0].positions[0].models as any).Heston.calibration.statusReason = 'insufficient surface';
     (payload.data[0].positions[0].models as any).Heston.calibration.fallbackReason = 'insufficient_surface';
 
     sanitizeComputeRunsWireOutput(payload);
@@ -373,6 +379,9 @@ describe('summarizeComputeRunsResponse', () => {
     }) as Record<string, any>;
 
     expect(summarized.data).toHaveLength(1);
+    expect(summarized.data[0].portfolioDispersion.Delta.models).toBeUndefined();
+    expect(summarized.data[0].positions[0].models).toBeUndefined();
+    expect(summarized.data[0].positions[0].modelSummary).toBeDefined();
     expect(summarized.summary).toEqual({
       returnedRuns: 1,
       latestStatus: 'completed',
@@ -433,7 +442,7 @@ describe('summarizeComputeRunsResponse', () => {
     });
   });
 
-  test('drops oldest rich runs until the shaped response fits the MCP budget', () => {
+  test('keeps rich multi-run responses compact without nested model dumps', () => {
     const summarized = summarizeComputeRunsResponse({
       data: [makeRichRecord(0), makeRichRecord(1), makeRichRecord(2)],
       count: 3,
@@ -442,15 +451,14 @@ describe('summarizeComputeRunsResponse', () => {
     expect(JSON.stringify(summarized).length).toBeLessThan(50 * 1024);
     expect(summarized.data[0].runKey).toBeUndefined();
     expect(summarized.summary.returnedRuns).toBe(summarized.data.length);
-    expect(summarized._truncation_meta).toEqual(expect.objectContaining({
-      returned: summarized.data.length,
-      requested: 3,
-      selection: 'newest',
-      reason: 'size budget',
-    }));
+    expect(summarized._truncation_meta).toBeUndefined();
+    expect(summarized.data).toHaveLength(3);
+    expect(summarized.data[0].positions).toHaveLength(2);
+    expect(summarized.data[0].positions[0].models).toBeUndefined();
+    expect(summarized.data[0].positions[0].modelSummary).toBeDefined();
   });
 
-  test('compacts a single oversized run instead of falling through to generic size error', () => {
+  test('keeps a single rich run compact enough for the MCP budget', () => {
     const summarized = summarizeComputeRunsResponse({
       data: [makeRichRecord(0)],
       count: 1,
@@ -459,11 +467,46 @@ describe('summarizeComputeRunsResponse', () => {
     expect(JSON.stringify(summarized).length).toBeLessThan(50 * 1024);
     expect(summarized.data).toHaveLength(1);
     expect(summarized.summary.returnedRuns).toBe(1);
-    expect(summarized._truncation_meta).toEqual(expect.objectContaining({
-      returned: 1,
-      requested: 1,
-      selection: 'newest',
-      reason: 'size budget',
-    }));
+    expect(summarized._truncation_meta).toBeUndefined();
+    expect(summarized.data[0].positions).toHaveLength(5);
+    expect(summarized.data[0].positions[0].models).toBeUndefined();
+    expect(summarized.data[0].positions[0].modelSummary).toBeDefined();
+  });
+
+  test('view=detailed preserves per-model details for a single returned run', () => {
+    const record = makeRichRecord(0);
+    const modelNames = Array.from({ length: 14 }, (_, index) => `Model${index + 1}`);
+    (record.data as Record<string, any>).portfolioAggregates = {
+      dispersion: {
+        Price: { min: 1, max: 14, mean: 7.5, stddev: 2.5, models: modelNames },
+        Delta: { min: 0.5, max: 0.64, mean: 0.57, stddev: 0.04, models: modelNames },
+      },
+    };
+
+    const summarized = summarizeComputeRunsResponse({
+      data: [record],
+      count: 1,
+    }, 'detailed') as Record<string, any>;
+
+    expect(JSON.stringify(summarized).length).toBeLessThan(50 * 1024);
+    expect(summarized.data).toHaveLength(1);
+    const dispersionMetric = Object.values(summarized.data[0].portfolioDispersion ?? {})[0] as Record<string, unknown> | undefined;
+    expect(dispersionMetric?.models).toBeDefined();
+    expect(summarized.data[0]._portfolioDispersion_meta).toBeUndefined();
+    expect(summarized.data[0].positions[0].models).toBeDefined();
+    expect(summarized.data[0].positions[0].modelSummary).toBeUndefined();
+  });
+
+  test('view=detailed is ignored for multi-run responses', () => {
+    const summarized = summarizeComputeRunsResponse({
+      data: [makeRichRecord(0), makeRichRecord(1)],
+      count: 2,
+    }, 'detailed') as Record<string, any>;
+
+    expect(summarized.data).toHaveLength(2);
+    const dispersionMetric = Object.values(summarized.data[0].portfolioDispersion ?? {})[0] as Record<string, unknown> | undefined;
+    expect(dispersionMetric?.models).toBeUndefined();
+    expect(summarized.data[0].positions[0].models).toBeUndefined();
+    expect(summarized.data[0].positions[0].modelSummary).toBeDefined();
   });
 });

@@ -27,6 +27,7 @@ describe('summarizeThresholdHistory', () => {
     expect(summarized.summary.longestStreakDays).toBe(4);
     expect(summarized.summary.checkedDaysSinceLastThreshold).toBe(0);
     expect(summarized.summary.daysOnThresholdPct).toBe(83.3);
+    expect(summarized.summary.source).toBe('Reg SHO threshold list');
     expect(summarized.recentThresholdDates).toEqual(['2026-03-27', '2026-03-26', '2026-03-25']);
     expect(summarized._recent_threshold_meta).toEqual({ showing: 3, total: 5, truncated: true });
   });
@@ -78,6 +79,7 @@ describe('summarizeThresholdHistory', () => {
     expect(summarized.summary.currentStreakDays).toBe(0);
     expect(summarized.summary.longestStreakDays).toBe(0);
     expect(summarized.summary.checkedDaysSinceLastThreshold).toBeNull();
+    expect(summarized.summary.source).toBe('Reg SHO threshold list');
     expect(summarized.recentThresholdDates).toEqual([]);
     expect(String(summarized._threshold_note)).toContain('did not appear on the threshold list');
   });

@@ -13,7 +13,6 @@ function createHarness(stubResponse: any = {}) {
       return stubResponse;
     },
     post: async () => ({}),
-    hasSearchKey: false,
   } as unknown as ProxyClient;
 
   const captured: { handler: ToolHandler | null } = { handler: null };
@@ -264,23 +263,68 @@ describe('get_regime — symbol tier rename (avoid input/output `scope` collisio
     expect(parsed.scope).toBeUndefined();
   });
 
-  test('scope=intraday renames per-scan `scope` → `symbol tier`', async () => {
+  test('scope=intraday strips raw vector blobs and hoists GEX exposures', async () => {
     const stub = {
       symbol: 'SPY',
-      count: 2,
+      count: 1,
       scans: [
-        { date: '2026-04-17', scan_time: '13:00', interval: 'midday', scope: 'bellwether', label: 'NORMAL' },
-        { date: '2026-04-17', scan_time: '14:30', interval: 'afternoon', scope: 'bellwether', label: 'ELEVATED' },
+        {
+          date: '2026-04-17',
+          scan_time: '13:00',
+          interval: 'midday',
+          scope: 'bellwether',
+          label: 'NORMAL',
+          drivers: [{ feature: 'skew_pressure', z: 1.2 }],
+          vector: {
+            z: { tail_dominance: 1 },
+            raw: { skew_pressure: 2 },
+            data_quality: { vol_level: 'ok' },
+            _meta: {
+              gex: {
+                spotPrice: 500,
+                netGamma: 1e9,
+                callWall: 510,
+                putWall: 490,
+                gammaFlip: 495,
+                topStrikes: [
+                  { strike: 500, callGamma: 10, putGamma: -5, netGamma: 5, callDelta: 1 },
+                  { strike: 505, callGamma: 8, putGamma: -2, netGamma: 6, callDelta: 2 },
+                  { strike: 495, callGamma: 7, putGamma: -1, netGamma: 6, callDelta: 3 },
+                  { strike: 510, callGamma: 6, putGamma: -1, netGamma: 5, callDelta: 4 },
+                  { strike: 490, callGamma: 5, putGamma: -1, netGamma: 4, callDelta: 5 },
+                  { strike: 515, callGamma: 4, putGamma: -1, netGamma: 3, callDelta: 6 },
+                ],
+              },
+            },
+          },
+        },
       ],
     };
     const { handler } = createHarness(stub);
     const result = await handler({ scope: 'intraday', symbol: 'SPY' });
     const parsed = JSON.parse(result.content[0].text);
-    expect(parsed.scans).toHaveLength(2);
+    expect(parsed.scans).toHaveLength(1);
     for (const scan of parsed.scans) {
       expect(scan['symbol tier']).toBe('bellwether');
       expect(scan.symbolTier).toBeUndefined();
       expect(scan.scope).toBeUndefined();
+      expect(scan.vector).toBeUndefined();
+      expect(scan.exposures['call wall']).toBe(510);
+      expect(scan.exposures['gamma flip']).toBe(495);
+      expect(scan.exposures.topStrikes).toEqual([
+        { strike: 500, netGamma: 5 },
+        { strike: 505, netGamma: 6 },
+        { strike: 495, netGamma: 6 },
+        { strike: 510, netGamma: 5 },
+        { strike: 490, netGamma: 4 },
+      ]);
+      expect(scan.drivers[0].feature).toBe('Skew Pressure');
     }
+    expect(result.content[0].text).not.toContain('tail_dominance');
+    expect(result.content[0].text).not.toContain('skew_pressure');
+    expect(result.content[0].text).not.toContain('callWall');
+    expect(result.content[0].text).not.toContain('callGamma');
+    expect(result.content[0].text).not.toContain('putGamma');
+    expect(result.content[0].text).not.toContain('callDelta');
   });
 });

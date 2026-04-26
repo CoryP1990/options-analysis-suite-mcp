@@ -14,7 +14,6 @@ function createHarness(stubByPath: Record<string, unknown | null> = {}) {
       return null;
     },
     post: async () => ({}),
-    hasSearchKey: false,
   } as unknown as ProxyClient;
 
   const captured: { handler: ToolHandler | null } = { handler: null };
@@ -171,7 +170,6 @@ describe('get_dark_pool_data — view=all', () => {
         return null;
       },
       post: async () => ({}),
-      hasSearchKey: false,
     } as unknown as ProxyClient;
 
     const captured: { handler: ToolHandler | null } = { handler: null };

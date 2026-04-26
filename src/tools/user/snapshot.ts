@@ -56,6 +56,13 @@ function stripRiskContributionBreakdowns(value: unknown, depth = 0): void {
   }
 }
 
+function replaceDuplicatedDetailsInSnapshotRows(res: any): void {
+  if (!res || !Array.isArray(res.data)) return;
+  for (const record of res.data) {
+    replaceDuplicatedDataField(record, 'details', '[see top-level details]');
+  }
+}
+
 const SNAPSHOT_DESCRIPTION = `Get the user's synced snapshot history by type. Each type serves a different question:
 
 • type="gex" — per-symbol Gamma Exposure snapshots. REQUIRED: \`symbol\`. Returns the 3 most recent snapshots (no dedupe — rows may be near-duplicates if recorded back-to-back). Includes per-expiration breakdown, call/put walls, gamma flip point, unusual activity, and expected move data.
@@ -86,13 +93,17 @@ export function register(server: McpServer, client: ProxyClient): void {
         // surface verbatim in user-facing summaries.
         if (res && Array.isArray(res.data)) {
           for (const record of res.data) {
+            stripSyncRecordMetadata(record);
             humanizeGexLevels(record);
             if (record && typeof record === 'object' && record.data && typeof record.data === 'object') {
               humanizeGexLevels(record.data);
             }
           }
         }
-        if (full && res != null) return { _skipSizeGuard: true, data: res };
+        if (full && res != null) {
+          replaceDuplicatedDetailsInSnapshotRows(res);
+          return { _skipSizeGuard: true, data: res };
+        }
         // Details contain per-expiration arrays — strip those and keep summary.
         if (res && Array.isArray(res.data)) {
           res.data = res.data.map((record: any) => {
@@ -124,7 +135,15 @@ export function register(server: McpServer, client: ProxyClient): void {
       if (type === 'portfolio') {
         const fetchLimit = full ? limit : Math.min(limit * 5, 50);
         const res = await client.get('/sync/analysis-data', { type: 'portfolio', limit: String(fetchLimit) }) as any;
-        if (full && res != null) return { _skipSizeGuard: true, data: res };
+        if (full && res != null) {
+          if (res && Array.isArray(res.data)) {
+            for (const record of res.data) {
+              stripSyncRecordMetadata(record);
+            }
+          }
+          replaceDuplicatedDetailsInSnapshotRows(res);
+          return { _skipSizeGuard: true, data: res };
+        }
         if (res && Array.isArray(res.data)) {
           res.data = res.data.map((record: any) => {
             stripSyncRecordMetadata(record);
@@ -150,7 +169,13 @@ export function register(server: McpServer, client: ProxyClient): void {
       const fetchLimit = full ? limit : Math.min(limit * 5, 50);
       const res = await client.get('/sync/analysis-data', { type: 'risk', limit: String(fetchLimit) }) as any;
       if (full && res != null) {
+        if (res && Array.isArray(res.data)) {
+          for (const record of res.data) {
+            stripSyncRecordMetadata(record);
+          }
+        }
         stripRiskContributionBreakdowns(res);
+        replaceDuplicatedDetailsInSnapshotRows(res);
         return { _skipSizeGuard: true, data: res };
       }
       if (res && Array.isArray(res.data)) {

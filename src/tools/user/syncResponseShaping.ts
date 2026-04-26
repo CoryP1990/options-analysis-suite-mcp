@@ -7,6 +7,7 @@
  * The default (non-full) view should keep the useful summary fields while
  * removing those duplicated heavy payloads.
  */
+import { modelDisplayName } from '../modelLabels.js';
 
 const MAX_SUMMARY_DEPTH = 3;
 const MAX_INLINE_SCALAR_ARRAY_ITEMS = 5;
@@ -22,6 +23,12 @@ const ANALYSIS_DEDUPE_OPTION_PRICE_REL = 0.01;
 const ANALYSIS_DEDUPE_DELTA = 0.02;
 const ANALYSIS_DEDUPE_VOL = 1e-6;
 const SNAPSHOT_SIGNATURE_DECIMALS = 4;
+const ANALYSIS_MODEL_KEYS = new Set(['model', 'bestModel', 'worstModel']);
+const VARIANCE_GAMMA_PARAM_LABELS: Record<string, string> = {
+  vgNu: 'nu',
+  vgSigma: 'sigma',
+  vgTheta: 'theta',
+};
 
 function roundNumber(value: number, decimals = ANALYSIS_NUMBER_DECIMALS): number {
   const abs = Math.abs(value);
@@ -82,6 +89,47 @@ function isScalar(value: unknown): boolean {
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (value == null || typeof value !== 'object' || Array.isArray(value)) return null;
   return value as Record<string, unknown>;
+}
+
+function humanizeVarianceGammaParams(value: unknown): void {
+  const obj = asRecord(value);
+  if (!obj) return;
+  for (const [rawKey, humanKey] of Object.entries(VARIANCE_GAMMA_PARAM_LABELS)) {
+    if (rawKey in obj) {
+      obj[humanKey] = obj[rawKey];
+      delete obj[rawKey];
+    }
+  }
+}
+
+export function humanizeAnalysisWireOutput(value: unknown, depth = 0): unknown {
+  if (depth > 20 || value == null || typeof value !== 'object') return value;
+  if (Array.isArray(value)) {
+    for (const item of value) humanizeAnalysisWireOutput(item, depth + 1);
+    return value;
+  }
+
+  const obj = value as Record<string, unknown>;
+  for (const [key, child] of Object.entries(obj)) {
+    if (ANALYSIS_MODEL_KEYS.has(key) && typeof child === 'string') {
+      obj[key] = modelDisplayName(child);
+      continue;
+    }
+    if (key === 'models' && Array.isArray(child)) {
+      obj[key] = child.map((item) => {
+        if (typeof item === 'string') return modelDisplayName(item);
+        humanizeAnalysisWireOutput(item, depth + 1);
+        return item;
+      });
+      continue;
+    }
+    if (key === 'params') {
+      humanizeVarianceGammaParams(child);
+    }
+    humanizeAnalysisWireOutput(obj[key], depth + 1);
+  }
+
+  return value;
 }
 
 function getAnalysisDelta(record: any): number | undefined {
@@ -534,6 +582,8 @@ export function shapeAnalysisResultRecord(record: any): void {
       record.artifacts = compactArtifacts;
     }
   }
+
+  humanizeAnalysisWireOutput(record);
 }
 
 /**
@@ -639,14 +689,23 @@ export function compactAnalysisHistoryResponse(res: any, threshold = RESPONSE_CO
  * `record.data.details` as well as top-level `record.details`. Replace the
  * nested copy with a compact note after the tool has summarized the top-level
  * details column.
+ *
+ * Only collapses when a top-level companion field exists — otherwise the note
+ * "[see top-level details]" would point at nothing and the LLM would lose
+ * the only copy of the data.
  */
 export function replaceDuplicatedDataField(record: any, field: string, note: string): void {
   if (
+    record?.[field] &&
+    typeof record[field] === 'object' &&
+    !Array.isArray(record[field]) &&
     record?.data &&
     typeof record.data === 'object' &&
     !Array.isArray(record.data) &&
     typeof record.data[field] === 'object' &&
-    record.data[field] !== null
+    record.data[field] !== null &&
+    record[field] !== undefined &&
+    record[field] !== null
   ) {
     record.data[field] = note;
   }

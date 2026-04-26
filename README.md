@@ -12,10 +12,10 @@ MCP server that gives Claude, ChatGPT, and Perplexity direct access to your opti
 
 ## Current Tool Surface
 
-The MCP currently exposes **35 tools** — consolidated into enum-driven unified tools where tool shapes are a clean family match (calendars, regime views, Treasury rates, FINRA short-side series, user snapshots, and options-market screeners).
+The MCP currently exposes **33 tools** — consolidated into enum-driven unified tools where tool shapes are a clean family match (calendars, regime views, Treasury rates, FINRA short-side series, user snapshots, and options-market screeners).
 
-- **26 market and research tools**
-- **8 synced user-data tools**
+- **25 market and research tools**
+- **7 synced user-data tools**
 - **1 platform-context tool**
 
 ## Market And Research Tools
@@ -59,7 +59,6 @@ The MCP currently exposes **35 tools** — consolidated into enum-driven unified
 
 - **Market Calendar** (`get_market_calendar`) — Unified calendar feed: `type='economic'` (FOMC/CPI/NFP macro events, optional country filter, full=true bypasses catalyst-focused default), `type='ipo'` (upcoming/recent listings), `type='dividend'` (ex/record/payment dates), `type='split'` (stock splits). Per-type date-window defaults; `symbol` filter for ipo/dividend/split
 - **Stock Prices** (`get_stock_prices`) — Historical OHLCV with compact trend summary
-- **Web Search** (`web_search`) — Real-time web search for market information and breaking news
 
 ## Synced User-Data Tools
 
@@ -67,12 +66,11 @@ These require account sync to be enabled.
 
 - **Analysis History** (`get_analysis_history`) — Pricing model history with near-identical reruns collapsed by default
 - **Query Analysis** (`query_analysis`) — Filtered analysis-history queries by delta, volatility, and DTE
-- **Compute Runs** (`get_compute_runs`) — AI Compute Suite run history with compact run summaries, exposure key levels, model-dispersion highlights, and representative position/model outputs across multiple pricing models
+- **Compute Runs** (`get_compute_runs`) — AI Compute Suite run history with compact run summaries, exposure key levels, model-dispersion highlights, and representative position/model consensus summaries across multiple pricing models; `view='detailed'` exposes per-model outputs when exactly one run matches
 - **FFT Results** (`get_fft_results`) — FFT scanner mispricing signals and calibration data
 - **Snapshots** (`get_snapshot`) — Unified synced-snapshot tool: `type='gex'` (per-symbol Gamma Exposure — requires `symbol`; per-expiration breakdown, call/put walls, gamma flip, unusual activity, expected move), `type='portfolio'` (account-wide portfolio snapshots with market-scaled raw Greeks — 1st + 2nd order), or `type='risk'` (account-wide VaR, CVaR, beta, Sharpe, drawdown, stress tests + $-impact Greeks)
 - **Analysis Rollups** (`get_analysis_rollups`) — Daily or weekly trend aggregates over your analysis activity
-- **User Annotations** (`get_user_annotations`) — Research notes, tags, and alerts
-- **Account Info** (`get_account_info`) — Subscription state and MCP capabilities such as web search availability
+- **Account Info** (`get_account_info`) — Subscription state and authentication context
 
 ## Platform Context
 

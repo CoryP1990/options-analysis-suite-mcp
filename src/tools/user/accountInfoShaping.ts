@@ -1,14 +1,10 @@
 import type { UserProfile } from '../../types.js';
 
-export function shapeAccountInfo(
-  profile: UserProfile | null,
-  hasWebSearch: boolean,
-): Record<string, unknown> {
+export function shapeAccountInfo(profile: UserProfile | null): Record<string, unknown> {
   if (!profile) {
     return {
       authenticated: false,
       subscriptionActive: false,
-      hasWebSearch,
       _note: 'Account information is not available. The MCP session may not be authenticated.',
     };
   }
@@ -34,6 +30,5 @@ export function shapeAccountInfo(
       currentPeriodEnd: sub?.currentPeriodEnd ?? null,
       daysRemaining: sub?.daysRemaining ?? null,
     },
-    hasWebSearch,
   };
 }

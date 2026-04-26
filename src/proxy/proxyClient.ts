@@ -12,13 +12,7 @@ export class ProxyClient {
   constructor(
     private proxyUrl: string,
     private tokenManager: TokenManager,
-    private searchApiKey?: string,
   ) {}
-
-  /** Whether a search API key is configured. */
-  get hasSearchKey(): boolean {
-    return !!this.searchApiKey;
-  }
 
   /**
    * GET request to the proxy.
@@ -36,11 +30,6 @@ export class ProxyClient {
       Authorization: `Bearer ${token}`,
       Accept: 'application/json',
     };
-
-    // Add search API key if available and path is search
-    if (this.searchApiKey && path.includes('/ai/search')) {
-      headers['x-search-api-key'] = this.searchApiKey;
-    }
 
     let response: Response;
     try {

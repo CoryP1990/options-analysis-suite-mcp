@@ -13,7 +13,6 @@ function createHarness(stubResponse: any) {
       return structuredClone(stubResponse);
     },
     post: async () => ({}),
-    hasSearchKey: false,
   } as unknown as ProxyClient;
 
   const captured: { handler: ToolHandler | null } = { handler: null };
@@ -117,6 +116,7 @@ describe('get_compute_runs wire output', () => {
     expect(parsed.data[0].status).toBe('completed');
     expect(text).toContain('fallback (default parameters)');
     expect(text).toContain('insufficient surface');
+    expect(text).toContain('statusReason');
     expect(text).not.toContain('runKey');
     expect(text).not.toContain('latestRunKey');
     expect(text).not.toContain('run_key');
@@ -129,6 +129,44 @@ describe('get_compute_runs wire output', () => {
     expect(text).not.toContain('portfolioAggregates');
     expect(text).not.toContain('byReason');
     expect(text).not.toContain('fallbackReason');
+  });
+
+  test('view=detailed on a single returned run preserves per-model details', async () => {
+    const { handler } = createHarness({ data: [makeRun(0)], count: 1 });
+    const result = await handler({ limit: 1, view: 'detailed' });
+    const parsed = JSON.parse(result.content[0].text);
+    const position = parsed.data[0].positions[0];
+
+    expect(parsed.data).toHaveLength(1);
+    expect(position.models).toBeDefined();
+    expect(position.modelSummary).toBeUndefined();
+    expect(position.models.Model2.price).toBe(2);
+    expect(position.models.Model2.greeks).toEqual({ Delta: 0.5, Gamma: 0.01 });
+    expect(position.models.Model2.calibrationSummary.confidence).toBe(0.9);
+  });
+
+  test('default single-run view remains compact consensus summary', async () => {
+    const { handler } = createHarness({ data: [makeRun(0)], count: 1 });
+    const result = await handler({ limit: 1 });
+    const parsed = JSON.parse(result.content[0].text);
+    const position = parsed.data[0].positions[0];
+
+    expect(parsed.data).toHaveLength(1);
+    expect(position.models).toBeUndefined();
+    expect(position.modelSummary).toBeDefined();
+    expect(position.modelSummary.modelCount).toBe(7);
+  });
+
+  test('view=detailed falls back to summary when more than one run is returned', async () => {
+    const { handler } = createHarness({ data: [makeRun(0), makeRun(1)], count: 2 });
+    const result = await handler({ limit: 5, view: 'detailed' });
+    const parsed = JSON.parse(result.content[0].text);
+
+    expect(parsed.data).toHaveLength(2);
+    expect(parsed.data[0].positions[0].models).toBeUndefined();
+    expect(parsed.data[0].positions[0].modelSummary).toBeDefined();
+    expect(parsed.data[1].positions[0].models).toBeUndefined();
+    expect(parsed.data[1].positions[0].modelSummary).toBeDefined();
   });
 
   test('humanizes model identifiers and strips calibration seeds on the wire', async () => {
@@ -160,11 +198,10 @@ describe('get_compute_runs wire output', () => {
     const text = result.content[0].text;
     const parsed = JSON.parse(text);
 
-    expect(parsed.data[0].portfolioDispersion.Price.models).toEqual(['Black-Scholes', 'Jump Diffusion', 'Variance Gamma']);
+    expect(parsed.data[0].portfolioDispersion.Price.models).toBeUndefined();
     const targetPosition = parsed.data[0].positions.find((position: any) => position.symbol === 'SPY C0');
-    expect(targetPosition.models['Black-Scholes']).toBeDefined();
-    expect(targetPosition.models['Jump Diffusion']).toBeDefined();
-    expect(targetPosition.models['Variance Gamma']).toBeDefined();
+    expect(targetPosition.models).toBeUndefined();
+    expect(targetPosition.modelSummary.modelsPreview).toEqual(['Black-Scholes', 'Jump Diffusion', 'Variance Gamma']);
     expect(text).not.toContain('BlackScholes');
     expect(text).not.toContain('JumpDiffusion');
     expect(text).not.toContain('VarianceGamma');

@@ -50,6 +50,12 @@ function buildStatus(isCurrentlyOnThreshold: boolean, lastSeenIndex: number): st
   return 'Not on threshold list';
 }
 
+export function displayThresholdSource(source: unknown): string | null {
+  if (typeof source !== 'string' || source.trim().length === 0) return null;
+  if (source.toLowerCase().includes('supabase')) return 'Reg SHO threshold list';
+  return source;
+}
+
 export function summarizeThresholdHistory(
   payload: ThresholdHistoryResponse,
   checkedDates: string[],
@@ -91,7 +97,7 @@ export function summarizeThresholdHistory(
       currentStreakDays: currentStreak,
       longestStreakDays: longestStreak,
       checkedDaysSinceLastThreshold: lastSeenIndex >= 0 ? lastSeenIndex : null,
-      source: payload.source ?? null,
+      source: displayThresholdSource(payload.source),
     },
     recentThresholdDates: normalizedThresholdDates.slice(0, recentCap),
     _recent_threshold_meta: normalizedThresholdDates.length > recentCap

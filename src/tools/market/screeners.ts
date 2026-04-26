@@ -2,6 +2,8 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ProxyClient } from '../../proxy/proxyClient.js';
 import { toolHandler } from '../helpers.js';
+import { modelDisplayName } from '../modelLabels.js';
+import { humanizeFeature } from './marketRegimeShaping.js';
 
 /**
  * One unified tool for every options-market screener the platform
@@ -65,6 +67,29 @@ type Sub = {
 interface ScreenerRoute {
   path: string;
   query?: Record<string, string>;
+}
+
+function humanizeScreenerOutput(value: unknown, depth = 0): unknown {
+  if (depth > 20 || value == null || typeof value !== 'object') return value;
+  if (Array.isArray(value)) {
+    for (const item of value) humanizeScreenerOutput(item, depth + 1);
+    return value;
+  }
+
+  const obj = value as Record<string, unknown>;
+  for (const [key, child] of Object.entries(obj)) {
+    if (key === 'topDriver' && typeof child === 'string') {
+      obj[key] = humanizeFeature(child);
+      continue;
+    }
+    if ((key === 'bestModel' || key === 'worstModel') && typeof child === 'string') {
+      obj[key] = modelDisplayName(child);
+      continue;
+    }
+    humanizeScreenerOutput(child, depth + 1);
+  }
+
+  return value;
 }
 
 function routeForScreener(screener: typeof SCREENER_IDS[number], sub: Sub, limit: number): ScreenerRoute {
@@ -236,11 +261,10 @@ export function register(server: McpServer, client: ProxyClient): void {
       const route = routeForScreener(screener, sub, limit);
       const res = await client.get(route.path, route.query) as any;
 
-      // Proxy responses standardize on { data: [...], ... }. If we
-      // ever get an odd shape (e.g. /scanner/market-trends returns
-      // sparklines keyed differently), we still pass it through
-      // unmodified — the size guard in toolHandler handles trimming.
-      return res;
+      // Proxy responses standardize on { data: [...], ... }. Normalize the
+      // few enum-like labels LLMs tend to quote verbatim, then let the shared
+      // size guard handle any unusually large payload.
+      return humanizeScreenerOutput(res);
     }),
   );
 }

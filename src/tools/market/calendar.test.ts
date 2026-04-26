@@ -13,7 +13,6 @@ function createHarness(stubResponse: unknown = []) {
       return stubResponse;
     },
     post: async () => ({}),
-    hasSearchKey: false,
   } as unknown as ProxyClient;
 
   const captured: { handler: ToolHandler | null } = { handler: null };

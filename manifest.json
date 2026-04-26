@@ -25,8 +25,7 @@
         "OAS_EMAIL": "${user_config.email}",
         "OAS_PASSWORD": "${user_config.password}",
         "OAS_PROXY_URL": "${user_config.proxy_url}",
-        "OAS_AUTH_SERVER_URL": "${user_config.auth_server_url}",
-        "OAS_SEARCH_API_KEY": "${user_config.search_api_key}"
+        "OAS_AUTH_SERVER_URL": "${user_config.auth_server_url}"
       }
     }
   },
@@ -57,13 +56,6 @@
       "description": "Platform auth server URL",
       "default": "https://api.optionsanalysissuite.com",
       "required": false
-    },
-    "search_api_key": {
-      "type": "string",
-      "title": "Brave Search API Key",
-      "description": "Optional Brave Search API key for web search. Get a free key at api.search.brave.com",
-      "sensitive": true,
-      "required": false
     }
   },
   "tools": [
@@ -90,16 +82,14 @@
     { "name": "get_dark_pool_data", "description": "Get FINRA OTC (non-ATS) and ATS (dark pool) weekly trading data. view='summary' (default) returns aggregate weekly volume/trade trends + compact summary; view='dealers' breaks OTC flow down to the top 15 dealer MPIDs per week; view='venues' breaks ATS flow down to the top 15 dark-pool venue MPIDs per week; view='all' returns summary+dealers+venues in one payload" },
     { "name": "get_trading_halts", "description": "Get active and recent trading halts with duplicate feed rows condensed and latest active halt states prioritized by default" },
     { "name": "get_activist_filings", "description": "Get Schedule 13D/13G beneficial-ownership filings with current above-threshold holder snapshots by default and below-threshold amendments summarized separately; full=true returns the raw filing list" },
-    { "name": "web_search", "description": "Search the web for real-time financial information and news" },
     { "name": "get_platform_info", "description": "Get platform background information" },
     { "name": "get_analysis_history", "description": "Get user's options pricing analysis history, with near-identical reruns collapsed in the default view and full=true for raw history" },
     { "name": "get_snapshot", "description": "Get user synced snapshots by type: 'gex' (per-symbol Gamma Exposure — requires symbol; returns 3 most recent snapshots, no dedupe), 'portfolio' (account-wide portfolio snapshots with market-scaled raw Greeks; default view collapses consecutive identical snapshots), or 'risk' (account-wide risk analysis with $-impact Greeks, VaR, stress tests; default view collapses consecutive identical snapshots)" },
     { "name": "get_analysis_rollups", "description": "Get user's analysis trend aggregates with compact rollup rows, cross-period summaries, and full=true for raw synced rows" },
     { "name": "get_fft_results", "description": "Get user's FFT scanner results — mispricing signals and calibration data" },
-    { "name": "get_user_annotations", "description": "Get user's research notes, tags, and alerts, with a truthful empty state when none have been synced yet" },
     { "name": "query_analysis", "description": "Query analysis history with numeric filters (delta, volatility, DTE ranges), with near-identical reruns collapsed in the default view" },
-    { "name": "get_account_info", "description": "Get structured current-user account info, subscription status, and MCP capabilities such as web search" },
-    { "name": "get_compute_runs", "description": "Get user's AI Compute Suite run history with compact run summaries, exposure key levels, and representative position/model outputs; use full=true for raw synced runs" },
+    { "name": "get_account_info", "description": "Get structured current-user account info and subscription status" },
+    { "name": "get_compute_runs", "description": "Get user's AI Compute Suite run history with compact run summaries, exposure key levels, and representative position/model consensus summaries; use view='detailed' for one matched run's per-model outputs, or full=true for raw synced runs" },
     { "name": "get_company_profile", "description": "Get a compact normalized company profile with float metrics, identifiers, and a trimmed description; use full=true for the raw synced row" },
     { "name": "run_screener", "description": "Run one of 16 options-market screeners (most-active, highest-oi, highest-iv, unusual, gex, model-divergence, regime-stress, term-backwardation, put-skew, delta-exposure, vega-exposure, pre-earnings-iv, dod-change, vrp, max-pain, unusual-directional) plus market-trends (time-series aggregates) and earnings-calendar (next-14-days upcoming earnings, widen with days up to 90). Pick via the screener enum; sub-params (view, index, metric, side, mode, direction, threshold, days, symbol) apply only to the screener that needs them. earnings-calendar returns a bare array of rows; every other screener returns a wrapped payload" }
   ],
