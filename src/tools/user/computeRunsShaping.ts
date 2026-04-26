@@ -67,6 +67,10 @@ function getDispersion(record: Record<string, unknown>): Record<string, unknown>
   return getObject(getObject(getObject(record.data)?.portfolioAggregates)?.dispersion);
 }
 
+function getDispersionExclusions(record: Record<string, unknown>): Record<string, unknown> | null {
+  return getObject(getObject(getObject(record.data)?.portfolioAggregates)?.excluded);
+}
+
 function compactMetricValue(value: unknown): number | Record<string, unknown> | undefined {
   if (typeof value === 'number') return round(value, 6);
 
@@ -338,6 +342,13 @@ function shapeExposureSweep(value: unknown): Array<Record<string, unknown>> | un
   return sweep.length > 0 ? sweep : undefined;
 }
 
+function shapeDispersionExclusions(value: Record<string, unknown> | null): Record<string, unknown> | undefined {
+  if (!value) return undefined;
+  const models = getArray<string>(value.models).filter((item) => typeof item === 'string');
+  if (models.length === 0) return undefined;
+  return { models };
+}
+
 function shapeDispersion(value: Record<string, unknown> | null): Record<string, unknown> | undefined {
   if (!value) return undefined;
 
@@ -396,6 +407,7 @@ export function shapeComputeRunRecord(
     },
     underlyings,
     portfolioDispersion: shapeDispersion(getDispersion(raw)),
+    dispersionExclusions: shapeDispersionExclusions(getDispersionExclusions(raw)),
     exposureSweep: shapeExposureSweep(getObject(raw.data)?.exposureSweep),
     errors: getArray<Record<string, unknown>>(getObject(raw.data)?.errors).slice(0, MAX_DEFAULT_ERRORS),
     positions: shownPositions.map((position) => shapePosition(position, maxModels)),
