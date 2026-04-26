@@ -129,7 +129,7 @@ describe('get_dark_pool_data — view=all', () => {
     expect(parsed.summary).toBeDefined();
     expect(parsed.dealers).toBeDefined();
     expect(parsed.venues).toBeNull();
-    expect(parsed._venues_note).toContain('No ATS venue breakdown');
+    expect(parsed.venuesNote).toContain('No ATS venue breakdown');
   });
 
   test('all four paths missing returns "No data available"', async () => {
@@ -183,8 +183,8 @@ describe('get_dark_pool_data — view=all', () => {
 
     const result = await captured.handler({ symbol: 'SPY', view: 'all' });
     const parsed = JSON.parse(result.content[0].text);
-    expect(parsed._otc_note).toContain('OTC aggregate unavailable');
-    expect(parsed._otc_note).toContain('upstream 500');
+    expect(parsed.otcNote).toContain('OTC aggregate unavailable');
+    expect(parsed.otcNote).toContain('upstream 500');
     expect(parsed._ats_note).toBeUndefined(); // ATS aggregate succeeded
     expect(parsed.dealers).not.toBeNull();
     expect(parsed.venues).not.toBeNull();

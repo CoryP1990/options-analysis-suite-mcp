@@ -372,7 +372,7 @@ describe('shapeRecord', () => {
     // Signal-bearing fields — MUST survive, the tool exists to surface these
     expect(model.signal).toBe('weak sell');
     expect(model.priceDiffPct).toBe(-0.46);
-    expect(model.model).toBe('blackScholes');
+    expect(model.model).toBe('Black-Scholes');
     expect(model.price).toBe(114.7333);
     // Primary greeks preserved
     expect(model.greeks).toEqual({
@@ -593,6 +593,15 @@ describe('humanizeSignalsDeep', () => {
             bestEdgePut: { signal: 'strongSell', strike: 370, edge: 0.28 },
             bestEdgeCall: { signal: 'weakBuy', strike: 420 },
           },
+          comparison: [
+            {
+              agreement: 'majority_buy',
+              modelDiffs: { blackScholes: 4.5, varianceGamma: -2.2 },
+              modelPrices: { blackScholes: 13.2 },
+              modelSignals: { varianceGamma: 'strongSell' },
+            },
+          ],
+          models: ['blackScholes', 'varianceGamma'],
           positions: [
             {
               strike: 380,
@@ -609,7 +618,14 @@ describe('humanizeSignalsDeep', () => {
     expect(payload.data[0].bestValues.bestEdgePut.signal).toBe('strong sell');
     expect(payload.data[0].bestValues.bestEdgeCall.signal).toBe('weak buy');
     expect(payload.data[0].positions[0].models[0].signal).toBe('strong buy');
+    expect(payload.data[0].positions[0].models[0].model).toBe('Black-Scholes');
     expect(payload.data[0].positions[0].models[1].signal).toBe('sell');
+    expect(payload.data[0].models).toEqual(['Black-Scholes', 'Variance Gamma']);
+    const comparison = payload.data[0].comparison[0] as any;
+    expect(comparison.agreement).toBe('majority buy');
+    expect(comparison.modelDiffs).toEqual({ 'Black-Scholes': 4.5, 'Variance Gamma': -2.2 });
+    expect(comparison.modelPrices).toEqual({ 'Black-Scholes': 13.2 });
+    expect(comparison.modelSignals).toEqual({ 'Variance Gamma': 'strong sell' });
   });
 
   test('leaves non-signal fields untouched and is null/array safe', () => {
@@ -620,7 +636,7 @@ describe('humanizeSignalsDeep', () => {
     };
     humanizeSignalsDeep(payload);
     expect(payload.strike).toBe(100);
-    expect(payload.models[0]).toEqual({ model: 'sabr', priceDiffPct: 0.3 });
+    expect(payload.models[0]).toEqual({ model: 'SABR', priceDiffPct: 0.3 });
     expect(payload.meta.kind).toBe('fft');
     expect(() => humanizeSignalsDeep(null)).not.toThrow();
     expect(() => humanizeSignalsDeep('string')).not.toThrow();

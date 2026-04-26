@@ -13,7 +13,7 @@ describe('annotateRiskFreeRate', () => {
     }) as Record<string, unknown>;
 
     expect(shaped.maturity).toBe('10Y');
-    expect(shaped._rate_meta).toEqual({ source: 'platform_10y_benchmark', maturity: '10Y' });
+    expect(shaped._rate_meta).toEqual({ source: 'platform 10Y benchmark', maturity: '10Y' });
   });
 
   test('leaves non-10Y payloads unchanged', () => {

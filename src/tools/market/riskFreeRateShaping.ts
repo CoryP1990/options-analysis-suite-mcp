@@ -15,6 +15,6 @@ export function annotateRiskFreeRate(payload: unknown): unknown {
 
   return {
     ...response,
-    _rate_meta: { source: 'platform_10y_benchmark', maturity: '10Y' },
+    _rate_meta: { source: 'platform 10Y benchmark', maturity: '10Y' },
   };
 }

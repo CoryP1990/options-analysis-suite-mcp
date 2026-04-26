@@ -71,6 +71,39 @@ function humanizeSignal(signal: unknown): unknown {
     .trim();
 }
 
+const MODEL_LABELS: Record<string, string> = {
+  blackScholes: 'Black-Scholes',
+  bs: 'Black-Scholes',
+  black76: 'Black-76',
+  heston: 'Heston',
+  bates: 'Bates',
+  varianceGamma: 'Variance Gamma',
+  vg: 'Variance Gamma',
+  jumpDiffusion: 'Jump Diffusion',
+  merton: 'Merton',
+  kou: 'Kou',
+  cgmy: 'CGMY',
+  sabr: 'SABR',
+  fft: 'FFT',
+  pde: 'PDE',
+  binomial: 'Binomial',
+};
+
+function humanizeModelName(model: unknown): unknown {
+  if (typeof model !== 'string' || !model) return model;
+  return MODEL_LABELS[model] ?? model;
+}
+
+function humanizeModelKeyedObject(value: unknown, valueTransform?: (item: unknown) => unknown): unknown {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
+  const out: Record<string, unknown> = {};
+  for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+    const humanKey = humanizeModelName(key);
+    out[typeof humanKey === 'string' ? humanKey : key] = valueTransform ? valueTransform(item) : item;
+  }
+  return out;
+}
+
 /** Walk a payload in place and humanize every `signal` and `agreement` string
  *  field (FFT response carries both), leaving the rest of the structure
  *  untouched. Used by the full=true / _skipSizeGuard path AND the default
@@ -85,6 +118,18 @@ export function humanizeSignalsDeep(value: unknown, depth = 0): void {
   for (const [key, child] of Object.entries(obj)) {
     if ((key === 'signal' || key === 'agreement') && typeof child === 'string') {
       obj[key] = humanizeSignal(child);
+    } else if (key === 'model' && typeof child === 'string') {
+      obj[key] = humanizeModelName(child);
+    } else if (key === 'models' && Array.isArray(child)) {
+      obj[key] = child.map((item) => {
+        if (typeof item === 'string') return humanizeModelName(item);
+        humanizeSignalsDeep(item, depth + 1);
+        return item;
+      });
+    } else if (key === 'modelSignals') {
+      obj[key] = humanizeModelKeyedObject(child, humanizeSignal);
+    } else if (key === 'modelDiffs' || key === 'modelPrices') {
+      obj[key] = humanizeModelKeyedObject(child);
     } else if (child !== null && typeof child === 'object') {
       humanizeSignalsDeep(child, depth + 1);
     }
@@ -160,7 +205,7 @@ function compactPositions(positions: unknown): unknown {
           if (!m || typeof m !== 'object' || Array.isArray(m)) return m;
           const modelSrc = m as Record<string, unknown>;
           const modelOut: Record<string, unknown> = {};
-          if ('model' in modelSrc) modelOut.model = modelSrc.model;
+          if ('model' in modelSrc) modelOut.model = humanizeModelName(modelSrc.model);
           if ('price' in modelSrc) modelOut.price = modelSrc.price;
           // Signal-bearing fields an AI needs to understand model disagreement
           // — cheap to keep (~5 bytes/field) and core to the tool's purpose.
@@ -281,8 +326,9 @@ export function truncateRecord(record: any): void {
  *  Called by the FFT tool as a Pass-3 fallback after `shapeRecord` (Pass 1)
  *  and `truncateRecord` (Pass 2). Sync-backed FFT data is sorted newest-first
  *  (`timestamp DESC` in `proxy/routes/sync.ts`), so `pop()` drops the oldest.
- *  Preserves at least 1 record and annotates the response with
- *  `_truncation_meta` so AI clients see exactly how many they got vs requested.
+ *  Preserves at least 1 record and annotates the internal response with
+ *  `_truncation_meta`; the shared MCP handler strips leading-underscore
+ *  metadata before returning content to AI clients.
  *  Returns the mutated response for chaining. No-op when already under budget.
  */
 export function trimToSizeBudget(

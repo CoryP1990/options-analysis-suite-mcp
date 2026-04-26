@@ -41,6 +41,21 @@ function humanizeGexLevels(target: unknown): void {
   }
 }
 
+function stripRiskContributionBreakdowns(value: unknown, depth = 0): void {
+  if (depth > 20 || value == null || typeof value !== 'object') return;
+  if (Array.isArray(value)) {
+    for (const item of value) stripRiskContributionBreakdowns(item, depth + 1);
+    return;
+  }
+
+  const obj = value as Record<string, unknown>;
+  delete obj.positionContributions;
+  delete obj.position_contributions;
+  for (const child of Object.values(obj)) {
+    stripRiskContributionBreakdowns(child, depth + 1);
+  }
+}
+
 const SNAPSHOT_DESCRIPTION = `Get the user's synced snapshot history by type. Each type serves a different question:
 
 • type="gex" — per-symbol Gamma Exposure snapshots. REQUIRED: \`symbol\`. Returns the 3 most recent snapshots (no dedupe — rows may be near-duplicates if recorded back-to-back). Includes per-expiration breakdown, call/put walls, gamma flip point, unusual activity, and expected move data.
@@ -134,7 +149,10 @@ export function register(server: McpServer, client: ProxyClient): void {
       // type === 'risk'
       const fetchLimit = full ? limit : Math.min(limit * 5, 50);
       const res = await client.get('/sync/analysis-data', { type: 'risk', limit: String(fetchLimit) }) as any;
-      if (full && res != null) return { _skipSizeGuard: true, data: res };
+      if (full && res != null) {
+        stripRiskContributionBreakdowns(res);
+        return { _skipSizeGuard: true, data: res };
+      }
       if (res && Array.isArray(res.data)) {
         res.data = res.data.map((record: any) => {
           stripSyncRecordMetadata(record);

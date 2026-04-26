@@ -82,7 +82,7 @@ describe('get_snapshot — portfolio/risk fetchLimit behavior', () => {
 });
 
 describe('get_snapshot — GEX details dual handling', () => {
-  test('array-form details: collapsed to { _omitted: [\'expiration breakdowns (N items)\'] }', async () => {
+  test('array-form details: collapsed to { omitted: [\'expiration breakdowns (N items)\'] }', async () => {
     const stub = {
       data: [
         {
@@ -95,10 +95,10 @@ describe('get_snapshot — GEX details dual handling', () => {
     const { handler } = createHarness(stub);
     const result = await handler({ type: 'gex', symbol: 'SPY' });
     const parsed = JSON.parse(result.content[0].text);
-    expect(parsed.data[0].details._omitted).toEqual(['expiration breakdowns (3 items)']);
+    expect(parsed.data[0].details.omitted).toEqual(['expiration breakdowns (3 items)']);
   });
 
-  test('object-form details: scalars kept, array keys moved to _omitted', async () => {
+  test('object-form details: scalars kept, array keys moved to omitted', async () => {
     const stub = {
       data: [
         {
@@ -120,7 +120,7 @@ describe('get_snapshot — GEX details dual handling', () => {
     expect(parsed.data[0].details.spotPrice).toBe(500);
     expect(parsed.data[0].details.callWallLevels).toBeUndefined();
     expect(parsed.data[0].details.putWallLevels).toBeUndefined();
-    expect(parsed.data[0].details._omitted).toEqual(['call wall levels (2 items)', 'put wall levels (2 items)']);
+    expect(parsed.data[0].details.omitted).toEqual(['call wall levels (2 items)', 'put wall levels (2 items)']);
   });
 });
 
@@ -139,5 +139,70 @@ describe('get_snapshot — full mode uses _skipSizeGuard', () => {
     const result = await handler({ type: 'portfolio', full: true });
     const parsed = JSON.parse(result.content[0].text);
     expect(parsed).toEqual(stub);
+  });
+
+  test('type=portfolio full=true strips nested synced snapshot ids', async () => {
+    const stub = {
+      data: [{
+        id: 1,
+        user_id: 1,
+        created_at: '2026-04-01T00:00:00.000Z',
+        timestamp: 1776550587306,
+        data: {
+          id: 2,
+          timestamp: 1776550587306,
+          totalValue: 107864.29,
+          delta: 309.6892,
+        },
+      }],
+      count: 1,
+    };
+    const { handler } = createHarness(stub);
+    const result = await handler({ type: 'portfolio', full: true });
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed.data[0].id).toBeUndefined();
+    expect(parsed.data[0].user_id).toBeUndefined();
+    expect(parsed.data[0].created_at).toBeUndefined();
+    expect(parsed.data[0].data.id).toBeUndefined();
+    expect(parsed.data[0].data.totalValue).toBe(107864.29);
+  });
+
+  test('type=risk full=true strips raw position contributions', async () => {
+    const stub = {
+      data: [{
+        id: 1,
+        user_id: 1,
+        timestamp: 1776550584312,
+        data: {
+          id: 2,
+          timestamp: 1776550584312,
+          portfolioValue: 161179.82,
+          dollarDelta: 148236.55,
+          positionContributions: [{ symbol: 'AAPL', contribution: 1200 }],
+          position_contributions: [{ symbol: 'META', contribution: -800 }],
+          nested: {
+            positionContributions: [{ symbol: 'TSLA', contribution: 500 }],
+          },
+        },
+        details: {
+          positionContributions: [{ symbol: 'AAPL', contribution: 1200 }],
+          position_contributions: [{ symbol: 'META', contribution: -800 }],
+        },
+      }],
+      count: 1,
+    };
+    const { handler } = createHarness(stub);
+    const result = await handler({ type: 'risk', full: true });
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed.data[0].id).toBeUndefined();
+    expect(parsed.data[0].data.id).toBeUndefined();
+    expect(parsed.data[0].data.positionContributions).toBeUndefined();
+    expect(parsed.data[0].data.position_contributions).toBeUndefined();
+    expect(parsed.data[0].data.nested.positionContributions).toBeUndefined();
+    expect(parsed.data[0].details.positionContributions).toBeUndefined();
+    expect(parsed.data[0].details.position_contributions).toBeUndefined();
+    expect(parsed.data[0].data.dollarDelta).toBe(148236.55);
+    expect(result.content[0].text).not.toContain('positionContributions');
+    expect(result.content[0].text).not.toContain('position_contributions');
   });
 });

@@ -187,12 +187,15 @@ describe('get_regime — scope=market include_symbols', () => {
     expect(parsed.symbols.bellwether.some((row: any) => row.symbol === 'SYM0')).toBe(false);
     for (const row of parsed.symbols.bellwether) {
       expect(row.scope).toBeUndefined();
-      expect(row.symbolTier).toBe('bellwether');
+      expect(row['symbol tier']).toBe('bellwether');
+      expect(row.symbolTier).toBeUndefined();
       expect(row.vector).toBeUndefined();
       expect(row.exposures['call wall']).toBe(510);
     }
-    expect(parsed._symbols_truncation_meta.selection).toBe('top-N per tier by |stress_score|');
-    expect(parsed._symbols_truncation_meta.tiers.bellwether).toEqual({ total: 10, returned: 8 });
+    expect(parsed.symbolCoverage.selection).toBe('top symbols per tier by absolute stress score');
+    expect(parsed.symbolCoverage.tiers.bellwether).toEqual({ total: 10, returned: 8 });
+    expect(parsed._symbols_truncation_meta).toBeUndefined();
+    expect(parsed._stress_score_note).toBeUndefined();
     expect(parsed.market.stress_score).toBe(0.5);
     expect(JSON.stringify(parsed)).not.toContain('callWall');
     expect(JSON.stringify(parsed)).not.toContain('tail_dominance');
@@ -228,8 +231,8 @@ describe('get_regime — scope=symbol days>1 keeps full history', () => {
   });
 });
 
-describe('get_regime — symbolTier rename (avoid input/output `scope` collision)', () => {
-  test('scope=symbol days=1 emits `symbolTier` not `scope` for the tier value', async () => {
+describe('get_regime — symbol tier rename (avoid input/output `scope` collision)', () => {
+  test('scope=symbol days=1 emits `symbol tier` not `scope` or `symbolTier` for the tier value', async () => {
     const stub = {
       symbol: 'NVDA',
       scope: 'bellwether',
@@ -238,11 +241,12 @@ describe('get_regime — symbolTier rename (avoid input/output `scope` collision
     const { handler } = createHarness(stub);
     const result = await handler({ scope: 'symbol', symbol: 'NVDA' });
     const parsed = JSON.parse(result.content[0].text);
-    expect(parsed.symbolTier).toBe('bellwether');
+    expect(parsed['symbol tier']).toBe('bellwether');
+    expect(parsed.symbolTier).toBeUndefined();
     expect(parsed.scope).toBeUndefined();
   });
 
-  test('scope=symbol days>1 also renames top-level scope → symbolTier', async () => {
+  test('scope=symbol days>1 also renames top-level scope → symbol tier', async () => {
     const stub = {
       symbol: 'XLF',
       scope: 'sector',
@@ -255,11 +259,12 @@ describe('get_regime — symbolTier rename (avoid input/output `scope` collision
     const { handler } = createHarness(stub);
     const result = await handler({ scope: 'symbol', symbol: 'XLF', days: 5 });
     const parsed = JSON.parse(result.content[0].text);
-    expect(parsed.symbolTier).toBe('sector');
+    expect(parsed['symbol tier']).toBe('sector');
+    expect(parsed.symbolTier).toBeUndefined();
     expect(parsed.scope).toBeUndefined();
   });
 
-  test('scope=intraday renames per-scan `scope` → `symbolTier`', async () => {
+  test('scope=intraday renames per-scan `scope` → `symbol tier`', async () => {
     const stub = {
       symbol: 'SPY',
       count: 2,
@@ -273,7 +278,8 @@ describe('get_regime — symbolTier rename (avoid input/output `scope` collision
     const parsed = JSON.parse(result.content[0].text);
     expect(parsed.scans).toHaveLength(2);
     for (const scan of parsed.scans) {
-      expect(scan.symbolTier).toBe('bellwether');
+      expect(scan['symbol tier']).toBe('bellwether');
+      expect(scan.symbolTier).toBeUndefined();
       expect(scan.scope).toBeUndefined();
     }
   });

@@ -14,7 +14,7 @@ const STRESS_SCORE_NOTE = 'stress_score is a raw composite regime score, not a 0
 
 const REGIME_DESCRIPTION = `Get regime data at one of three scopes. Pick the scope that matches the question; irrelevant sub-params are ignored.
 
-• scope="market" — MARKET COMPOSITE stress regime (aggregate across SPY/QQQ/IWM/DIA, not per-symbol). Returns composite stress score, confidence, key drivers, feature z-scores. Bands: CALM < -0.5, NORMAL -0.5..0.5, ELEVATED 0.5..1.5, STRESS 1.5..2.5, CRISIS ≥ 2.5. Accepts \`date\` (YYYY-MM-DD, default latest) and \`include_symbols\` (default false; true also returns up to the top 8 symbols per classification tier sorted by absolute stress score, with raw vector internals stripped — see _symbols_truncation_meta for total counts).
+• scope="market" — MARKET COMPOSITE stress regime (aggregate across SPY/QQQ/IWM/DIA, not per-symbol). Returns composite stress score, confidence, key drivers, feature z-scores. Bands: CALM < -0.5, NORMAL -0.5..0.5, ELEVATED 0.5..1.5, STRESS 1.5..2.5, CRISIS ≥ 2.5. Accepts \`date\` (YYYY-MM-DD, default latest) and \`include_symbols\` (default false; true also returns up to the top 8 symbols per classification tier sorted by absolute stress score, with raw vector internals stripped).
 • scope="symbol" — per-symbol daily regime + authoritative Greek exposures (net gamma/delta/vega/vanna/charm/vomma, call wall, put wall, gamma flip, top 10 gamma strikes). REQUIRED: \`symbol\`. Accepts \`days\` (default 1 = latest, max 30) and \`full\` (default false; true keeps raw vector). This is the correct scope for "what are SPY's Greek exposures?" — do NOT use get_options_analytics_history for current exposures.
 • scope="intraday" — intraday regime scan history for a symbol: 5 scans/day (open, morning, midday, afternoon, pre-close), each with stress scoring, regime classification, and 6 Greek exposure snapshots. REQUIRED: \`symbol\`. Accepts \`days\` (default 5, max 90), \`date\` (overrides days), and \`interval\` (filter to a single scan).`;
 
@@ -88,10 +88,11 @@ export function register(server: McpServer, client: ProxyClient): void {
                 // Humanize per-symbol drivers + vector feature-key records so
                 // include_symbols=true raw payload doesn't leak backend identifiers.
                 humanizeRegimeEntry(row);
-                // Per-symbol classification tier — same rename as scope=symbol path
-                // so include_symbols=true rows don't surface a raw `scope` field.
+                // Per-symbol classification tier — use a prose key so the MCP
+                // output doesn't collide with the input `scope` selector or leak
+                // a camelCase boundary label.
                 if (row && typeof row === 'object' && 'scope' in row) {
-                  row.symbolTier = row.scope;
+                  row['symbol tier'] = row.scope;
                   delete row.scope;
                 }
                 // Drop the raw vector blob now that exposures + humanized features
@@ -121,7 +122,7 @@ export function register(server: McpServer, client: ProxyClient): void {
             }
             if (Object.keys(tierMeta).length > 0) {
               res._symbols_truncation_meta = {
-                selection: 'top-N per tier by |stress_score|',
+                selection: 'top symbols per tier by absolute stress score',
                 tiers: tierMeta,
               };
             }
@@ -151,7 +152,7 @@ export function register(server: McpServer, client: ProxyClient): void {
         if (date) params.date = date;
         if (interval) params.interval = interval;
         const res = await client.get(`/regime/intraday/${encodeURIComponent(symbol)}`, params) as any;
-        // Rename per-scan `scope` (symbol classification tier) to `symbolTier` so it
+        // Rename per-scan `scope` (symbol classification tier) to a prose key so it
         // doesn't collide with the top-level `scope` input parameter at the MCP boundary.
         // Also humanize per-scan driver feature names (snake_case → "Title Case") so
         // an LLM relaying the response doesn't surface backend identifiers to end users.
@@ -159,7 +160,7 @@ export function register(server: McpServer, client: ProxyClient): void {
           for (const scan of res.scans) {
             if (scan && typeof scan === 'object') {
               if ('scope' in scan) {
-                scan.symbolTier = scan.scope;
+                scan['symbol tier'] = scan.scope;
                 delete scan.scope;
               }
               // Humanize drivers + vector feature-key records for the raw intraday payload.
@@ -189,18 +190,18 @@ export function register(server: McpServer, client: ProxyClient): void {
           symbol: symbol.toUpperCase(),
           // Use `view` instead of `scope` so the no-data record doesn't
           // re-introduce an output `scope` field on a path where the
-          // populated response uses `symbolTier` instead.
+          // populated response uses a prose "symbol tier" key instead.
           view: 'symbol',
           dataAvailable: false,
           message: 'No daily symbol-regime data available for this symbol. Symbol-regime classification covers a curated universe; not every ticker is included.',
         };
       }
 
-      // Rename top-level `scope` (symbol classification tier — bellwether/sector/etc.) to
-      // `symbolTier` so it doesn't collide with the MCP input parameter named `scope`
+      // Rename top-level `scope` (symbol classification tier — bellwether/sector/etc.)
+      // to a prose key so it doesn't collide with the MCP input parameter named `scope`
       // (which selects 'market' | 'symbol' | 'intraday' view, a different axis entirely).
       if ('scope' in res) {
-        res.symbolTier = res.scope;
+        res['symbol tier'] = res.scope;
         delete res.scope;
       }
 
@@ -235,7 +236,7 @@ export function register(server: McpServer, client: ProxyClient): void {
         const latest = res.history[res.history.length - 1];
         return {
           symbol: res.symbol,
-          symbolTier: res.symbolTier,
+          'symbol tier': res['symbol tier'],
           ...latest,
         };
       }

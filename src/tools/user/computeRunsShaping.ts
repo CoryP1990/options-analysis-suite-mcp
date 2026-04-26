@@ -18,14 +18,28 @@ type ComputeRunFilters = {
 };
 
 const MAX_DEFAULT_POSITIONS = 5;
-const MAX_MULTI_RUN_POSITIONS = 3;
+const MAX_MULTI_RUN_POSITIONS = 2;
 const MAX_DEFAULT_ERRORS = 5;
-const MAX_MULTI_RUN_MODELS = 5;
+const MAX_MULTI_RUN_MODELS = 3;
 const MAX_SINGLE_RUN_FALLBACK_POSITIONS = 3;
 const MAX_SINGLE_RUN_FALLBACK_MODELS = 5;
 const MAX_SINGLE_RUN_EMERGENCY_POSITIONS = 1;
 const MAX_SINGLE_RUN_EMERGENCY_MODELS = 3;
 const BUDGET_DISPERSION_KEYS = new Set(['Price', 'Delta', 'Gamma', 'Theta', 'Vega', 'Rho', 'Vanna', 'Charm', 'Vomma', 'Veta']);
+const FALLBACK_STATUS = 'fallback (default parameters)';
+const MODEL_NAME_LABELS: Record<string, string> = {
+  BlackScholes: 'Black-Scholes',
+  JumpDiffusion: 'Jump Diffusion',
+  VarianceGamma: 'Variance Gamma',
+  MonteCarlo: 'Monte Carlo',
+  'MonteCarlo-JumpDiffusion': 'Monte Carlo - Jump Diffusion',
+  'MonteCarlo-Heston': 'Monte Carlo - Heston',
+  'MonteCarlo-MeanReverting': 'Monte Carlo - Mean Reverting',
+  LocalVolatility: 'Local Volatility',
+  LocalVol: 'Local Volatility',
+  'LocalVol-Dupire': 'Local Volatility - Dupire',
+  'LocalVol-CEV': 'Local Volatility - CEV',
+};
 /** Headroom under the 50 KB MCP response limit so the generic size guard
  *  never silently collapses the response. Mirrors fftResponseShaping. */
 const COMPUTE_RUNS_SAFE_SIZE_BUDGET = 48 * 1024;
@@ -56,6 +70,43 @@ function toIso(timestamp: unknown): string | undefined {
 
 function normalizeUnderlying(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim().toUpperCase() : undefined;
+}
+
+function humanizeIdentifier(value: unknown): string | undefined {
+  if (typeof value !== 'string' || value.trim().length === 0) return undefined;
+  return value
+    .replace(/[_-]+/g, ' ')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function modelDisplayName(modelName: string): string {
+  if (MODEL_NAME_LABELS[modelName]) return MODEL_NAME_LABELS[modelName];
+  if (/^[A-Z0-9]+$/.test(modelName)) return modelName;
+  return modelName
+    .replace(/[_-]+/g, ' ')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/\bBlack Scholes\b/g, 'Black-Scholes')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function modelDisplayNames(values: unknown): string[] {
+  return getArray<string>(values)
+    .filter((item) => typeof item === 'string' && item.length > 0)
+    .map((item) => modelDisplayName(item));
+}
+
+function displayNameModelMap(value: unknown): Record<string, unknown> | undefined {
+  const models = getObject(value);
+  if (!models) return undefined;
+  const out: Record<string, unknown> = {};
+  for (const [modelName, modelValue] of Object.entries(models)) {
+    out[modelDisplayName(modelName)] = modelValue;
+  }
+  return out;
 }
 
 function getPositions(record: Record<string, unknown>): Record<string, unknown>[] {
@@ -95,6 +146,21 @@ function compactMetricValue(value: unknown): number | Record<string, unknown> | 
   return next;
 }
 
+function numericMetricValue(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  const metric = getObject(value);
+  return typeof metric?.value === 'number' && Number.isFinite(metric.value) ? metric.value : undefined;
+}
+
+function summarizeNumericValues(values: number[]): Record<string, number> | undefined {
+  const finiteValues = values.filter((value) => Number.isFinite(value));
+  if (finiteValues.length === 0) return undefined;
+  const min = Math.min(...finiteValues);
+  const max = Math.max(...finiteValues);
+  const mean = finiteValues.reduce((sum, value) => sum + value, 0) / finiteValues.length;
+  return { min: round(min, 6)!, max: round(max, 6)!, mean: round(mean, 6)! };
+}
+
 function compactGreekMap(value: unknown): Record<string, unknown> | undefined {
   const source = getObject(value);
   if (!source) return undefined;
@@ -120,6 +186,7 @@ function compactCalibrationParams(value: unknown): Record<string, unknown> | und
         || typeof paramValue === 'boolean'
         || (typeof paramValue === 'number' && Number.isFinite(paramValue))
       ))
+      .filter(([key]) => key !== 'seed' && key !== 'randomSeed')
       .map(([key, paramValue]) => [
         key,
         typeof paramValue === 'number' ? round(paramValue, 6) : paramValue,
@@ -136,12 +203,11 @@ function shapeCalibrationSummary(value: unknown): Record<string, unknown> | unde
   return {
     rmse: round(calibration.rmse, 6),
     confidence: round(calibration.confidence, 4),
-    // Replace the camelCase `isFallback` boolean with the single-word `fallback`,
-    // emitted only when the calibration actually fell back to defaults. Reads as
-    // prose ("the model is in fallback") instead of a code identifier.
-    ...(calibration.isFallback === true ? { fallback: true } : {}),
+    ...(calibration.isFallback === true ? { status: FALLBACK_STATUS } : {}),
+    ...(calibration.isFallback === true && humanizeIdentifier(calibration.fallbackReason)
+      ? { statusReason: humanizeIdentifier(calibration.fallbackReason) }
+      : {}),
     expirationDate: typeof calibration.expirationDate === 'string' ? calibration.expirationDate : undefined,
-    executionPath: typeof calibration.executionPath === 'string' ? calibration.executionPath : undefined,
     params: compactCalibrationParams(calibration.params),
     warnings: getArray<string>(calibration.warnings).filter((warning) => typeof warning === 'string').slice(0, 5),
   };
@@ -178,15 +244,49 @@ export function sanitizeComputeRunsWireOutput(value: unknown, depth = 0): void {
   }
 
   const obj = value as Record<string, unknown>;
+  const DROP_KEYS = new Set([
+    'portfolioAggregates',
+    'seedRejections',
+    'executionPath',
+    'economicPenalty',
+    'byReason',
+    'runKey',
+    'latestRunKey',
+    'seed',
+    'randomSeed',
+  ]);
+
+  delete obj.run_key;
+
+  for (const key of DROP_KEYS) {
+    delete obj[key];
+  }
+
   if ('keyLevels' in obj) {
     const shaped = shapeKeyLevels(obj.keyLevels);
     if (shaped) obj.keyLevels = shaped;
   }
+  if ('models' in obj) {
+    if (Array.isArray(obj.models)) {
+      obj.models = obj.models.map((item) => (
+        typeof item === 'string' ? modelDisplayName(item) : item
+      ));
+    } else {
+      const shaped = displayNameModelMap(obj.models);
+      if (shaped) obj.models = shaped;
+    }
+  }
   if ('isFallback' in obj) {
     const fallback = obj.isFallback === true;
+    const fallbackReason = fallback ? humanizeIdentifier(obj.fallbackReason) : undefined;
     delete obj.isFallback;
-    if (fallback) obj.fallback = true;
+    delete obj.fallbackReason;
+    if (fallback) {
+      obj.status = FALLBACK_STATUS;
+      if (fallbackReason) obj.statusReason = fallbackReason;
+    }
   }
+  delete obj.fallbackReason;
 
   for (const child of Object.values(obj)) {
     if (child != null && typeof child === 'object') {
@@ -287,9 +387,7 @@ function getModelPriority(modelName: string, modelValue: Record<string, unknown>
   const price = modelValue.price;
   const greeks = getObject(modelValue.greeks);
 
-  // Non-fallback calibration: the `fallback` field is absent (we only emit it
-  // when isFallback === true), so absence here means a real calibration ran.
-  if (calibration && calibration.fallback !== true) score += 100;
+  if (calibration && calibration.status !== FALLBACK_STATUS) score += 100;
   if (price !== undefined) score += 40;
   if (greeks && Object.keys(greeks).length > 0) score += 20;
 
@@ -332,17 +430,19 @@ function shapePosition(position: Record<string, unknown>, maxModels?: number): R
         .sort((left, right) => getModelPriority(right[0], right[1] as Record<string, unknown>) - getModelPriority(left[0], left[1] as Record<string, unknown>))
         .slice(0, maxModels)
     : shapedModelEntries;
-  const shapedModels = Object.fromEntries(limitedModelEntries);
+  const shapedModels = Object.fromEntries(
+    limitedModelEntries.map(([modelName, modelValue]) => [modelDisplayName(modelName), modelValue]),
+  );
 
   const calibratedModels = Object.entries(shapedModels)
-    .filter(([, modelValue]) => getObject(modelValue)?.calibrationSummary && getObject(getObject(modelValue)?.calibrationSummary)?.fallback !== true)
+    .filter(([, modelValue]) => getObject(modelValue)?.calibrationSummary && getObject(getObject(modelValue)?.calibrationSummary)?.status !== FALLBACK_STATUS)
     .map(([modelName]) => modelName);
   const symbol = typeof position.symbol === 'string' && position.symbol.trim().length > 0
     ? position.symbol
     : normalizeUnderlying(position.underlying);
+  const modelsNotShown = Math.max(0, shapedModelEntries.length - limitedModelEntries.length);
 
   return {
-    positionId: typeof position.positionId === 'string' ? position.positionId : undefined,
     symbol,
     underlying: normalizeUnderlying(position.underlying),
     isCall: typeof position.isCall === 'boolean' ? position.isCall : undefined,
@@ -359,7 +459,60 @@ function shapePosition(position: Record<string, unknown>, maxModels?: number): R
     modelCount: shapedModelEntries.length,
     calibratedModels,
     models: shapedModels,
-    omittedModelCount: Math.max(0, shapedModelEntries.length - limitedModelEntries.length),
+    ...(modelsNotShown > 0 ? { modelsNotShown } : {}),
+  };
+}
+
+function shapePositionHighlight(position: Record<string, unknown>, maxModelPreview: number): Record<string, unknown> {
+  const models = getObject(position.models) ?? {};
+  const modelSummaries = Object.entries(models)
+    .map(([modelName, modelValue]) => {
+      const summary = shapeModelSummary(modelValue);
+      return summary && getObject(summary)
+        ? { modelName, label: modelDisplayName(modelName), summary: summary as Record<string, unknown> }
+        : null;
+    })
+    .filter((entry): entry is { modelName: string; label: string; summary: Record<string, unknown> } => entry != null)
+    .sort((left, right) => getModelPriority(right.modelName, right.summary) - getModelPriority(left.modelName, left.summary));
+
+  const prices = modelSummaries
+    .map((entry) => numericMetricValue(entry.summary.price))
+    .filter((value): value is number => value !== undefined);
+  const greeksAvailable = Array.from(new Set(
+    modelSummaries.flatMap((entry) => Object.keys(getObject(entry.summary.greeks) ?? {})),
+  ));
+  const calibratedModelCount = modelSummaries.filter((entry) => {
+    const calibration = getObject(entry.summary.calibrationSummary);
+    return calibration && calibration.status !== FALLBACK_STATUS;
+  }).length;
+  const fallbackModelCount = modelSummaries.filter((entry) => {
+    const calibration = getObject(entry.summary.calibrationSummary);
+    return calibration?.status === FALLBACK_STATUS;
+  }).length;
+  const errorCount = modelSummaries.filter((entry) => typeof entry.summary.error === 'string').length;
+  const symbol = typeof position.symbol === 'string' && position.symbol.trim().length > 0
+    ? position.symbol
+    : normalizeUnderlying(position.underlying);
+
+  return {
+    symbol,
+    underlying: normalizeUnderlying(position.underlying),
+    isCall: typeof position.isCall === 'boolean' ? position.isCall : undefined,
+    strike: round(position.strike, 4),
+    expiration: typeof position.expiration === 'string' ? position.expiration : undefined,
+    daysToExpiry: typeof position.daysToExpiry === 'number' ? position.daysToExpiry : undefined,
+    quantity: typeof position.quantity === 'number' ? position.quantity : undefined,
+    multiplier: typeof position.multiplier === 'number' ? position.multiplier : undefined,
+    marketPrice: round(position.marketPrice, 6),
+    modelSummary: {
+      modelCount: modelSummaries.length,
+      modelsPreview: modelSummaries.slice(0, maxModelPreview).map((entry) => entry.label),
+      calibratedModelCount,
+      ...(fallbackModelCount > 0 ? { fallbackModelCount } : {}),
+      ...(errorCount > 0 ? { errorCount } : {}),
+      price: summarizeNumericValues(prices),
+      ...(greeksAvailable.length > 0 ? { greeksAvailable } : {}),
+    },
   };
 }
 
@@ -390,7 +543,7 @@ function shapeDispersion(value: Record<string, unknown> | null): Record<string, 
         max: round(dispersion.max, 4),
         mean: round(dispersion.mean, 4),
         stddev: round(dispersion.stddev, 4),
-        models: getArray<string>(dispersion.models).filter((item) => typeof item === 'string'),
+        models: modelDisplayNames(dispersion.models),
       }];
     }),
   );
@@ -400,7 +553,7 @@ function shapeDispersion(value: Record<string, unknown> | null): Record<string, 
 
 function shapeDispersionExclusions(value: Record<string, unknown> | null): Record<string, unknown> | undefined {
   if (!value) return undefined;
-  const models = getArray<string>(value.models).filter((item) => typeof item === 'string');
+  const models = modelDisplayNames(value.models);
   if (models.length === 0) return undefined;
   return { models };
 }
@@ -411,24 +564,37 @@ function limitPositionModels(position: Record<string, unknown>, maxModels: numbe
 
   const entries = Object.entries(models);
   if (entries.length <= maxModels) return position;
+  const previousCount = typeof position.modelsNotShown === 'number'
+    ? position.modelsNotShown
+    : typeof position.omittedModelCount === 'number'
+      ? position.omittedModelCount
+      : 0;
+  const { omittedModelCount: _omittedModelCount, modelsNotShown: _modelsNotShown, ...rest } = position;
 
   return {
-    ...position,
+    ...rest,
     models: Object.fromEntries(entries.slice(0, maxModels)),
-    omittedModelCount: (typeof position.omittedModelCount === 'number' ? position.omittedModelCount : 0) + entries.length - maxModels,
+    modelsNotShown: previousCount + entries.length - maxModels,
   };
 }
 
 function limitRunPositionsAndModels(run: Record<string, unknown>, maxPositions: number, maxModels: number): Record<string, unknown> {
   const positions = getArray<Record<string, unknown>>(run.positions);
   if (positions.length === 0) return run;
+  const previousCount = typeof run.positionsNotShown === 'number'
+    ? run.positionsNotShown
+    : typeof run.omittedPositionCount === 'number'
+      ? run.omittedPositionCount
+      : 0;
+  const { omittedPositionCount: _omittedPositionCount, positionsNotShown: _positionsNotShown, ...rest } = run;
+  const positionsNotShown = previousCount + Math.max(0, positions.length - maxPositions);
 
   return {
-    ...run,
+    ...rest,
     positions: positions
       .slice(0, maxPositions)
       .map((position) => limitPositionModels(position, maxModels)),
-    omittedPositionCount: (typeof run.omittedPositionCount === 'number' ? run.omittedPositionCount : 0) + Math.max(0, positions.length - maxPositions),
+    ...(positionsNotShown > 0 ? { positionsNotShown } : {}),
   };
 }
 
@@ -477,7 +643,6 @@ function buildComputeRunsOutput(response: Record<string, unknown>, shapedRuns: A
     data: shapedRuns,
     summary: {
       returnedRuns: shapedRuns.length,
-      latestRunKey: typeof latest?.runKey === 'string' ? latest.runKey : undefined,
       latestStatus: typeof latest?.status === 'string' ? latest.status : undefined,
       latestStartedAt: typeof latest?.startedAt === 'string' ? latest.startedAt : undefined,
       statuses,
@@ -534,6 +699,7 @@ export function shapeComputeRunRecord(
   record: unknown,
   maxPositions = MAX_DEFAULT_POSITIONS,
   maxModels?: number,
+  positionView: 'detailed' | 'summary' = 'detailed',
 ): Record<string, unknown> | unknown {
   const raw = getObject(record);
   if (!raw) return record;
@@ -549,7 +715,6 @@ export function shapeComputeRunRecord(
   ));
 
   return {
-    runKey: typeof raw.run_key === 'string' ? raw.run_key : typeof raw.runKey === 'string' ? raw.runKey : undefined,
     status: typeof raw.status === 'string' ? raw.status : undefined,
     scope: typeof raw.scope === 'string' ? raw.scope : undefined,
     quality: typeof raw.quality === 'string' ? raw.quality : undefined,
@@ -563,16 +728,18 @@ export function shapeComputeRunRecord(
       executionTimeMs: round(summary.executionTimeMs, 2),
       errorCount: typeof summary.errorCount === 'number' ? summary.errorCount : undefined,
       engineVersion: typeof summary.engineVersion === 'string' ? summary.engineVersion : undefined,
-      portfolioSnapshotId: typeof summary.portfolioSnapshotId === 'number' ? summary.portfolioSnapshotId : undefined,
-      riskSnapshotId: typeof summary.riskSnapshotId === 'number' ? summary.riskSnapshotId : undefined,
     },
     underlyings,
     portfolioDispersion: shapeDispersion(getDispersion(raw)),
     dispersionExclusions: shapeDispersionExclusions(getDispersionExclusions(raw)),
     exposureSweep: shapeExposureSweep(getObject(raw.data)?.exposureSweep),
     errors: getArray<Record<string, unknown>>(getObject(raw.data)?.errors).slice(0, MAX_DEFAULT_ERRORS),
-    positions: shownPositions.map((position) => shapePosition(position, maxModels)),
-    omittedPositionCount: Math.max(0, positions.length - shownPositions.length),
+    positions: shownPositions.map((position) => (
+      positionView === 'summary'
+        ? shapePositionHighlight(position, maxModels ?? MAX_MULTI_RUN_MODELS)
+        : shapePosition(position, maxModels)
+    )),
+    ...(positions.length > shownPositions.length ? { positionsNotShown: positions.length - shownPositions.length } : {}),
   };
 }
 
@@ -605,9 +772,10 @@ export function summarizeComputeRunsResponse(payload: unknown): unknown {
   const isMultiRun = response.data.length >= 2;
   const maxModelsPerPosition = isMultiRun ? MAX_MULTI_RUN_MODELS : undefined;
   const maxPositionsPerRun = isMultiRun ? MAX_MULTI_RUN_POSITIONS : MAX_DEFAULT_POSITIONS;
+  const positionView = isMultiRun ? 'summary' : 'detailed';
 
   const shapedRuns = response.data
-    .map((record) => shapeComputeRunRecord(record, maxPositionsPerRun, maxModelsPerPosition))
+    .map((record) => shapeComputeRunRecord(record, maxPositionsPerRun, maxModelsPerPosition, positionView))
     .filter((record): record is Record<string, unknown> => record != null && typeof record === 'object' && !Array.isArray(record));
 
   return trimComputeRunsToBudget(buildComputeRunsOutput(response, shapedRuns));

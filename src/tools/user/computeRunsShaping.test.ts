@@ -24,7 +24,7 @@ function makeRecord() {
       errors: [{ positionId: 'pos-b', model: 'PDE', error: 'slow' }],
       portfolioAggregates: {
         dispersion: {
-          Delta: { min: 50.6, max: 52.8, mean: 51.7, stddev: 0.82, models: ['BlackScholes', 'Heston'] },
+          Delta: { min: 50.6, max: 52.8, mean: 51.7, stddev: 0.82, models: ['BlackScholes', 'Heston', 'VarianceGamma'] },
         },
       },
       exposureSweep: [{
@@ -114,14 +114,14 @@ describe('shapeComputeRunRecord', () => {
   test('builds a compact assistant-facing compute-run summary', () => {
     const shaped = shapeComputeRunRecord(makeRecord()) as Record<string, any>;
 
-    expect(shaped.runKey).toBe('run-123');
+    expect(shaped.runKey).toBeUndefined();
     expect(shaped.summary.totalModelRuns).toBe(24);
     expect(shaped.portfolioDispersion.Delta).toEqual({
       min: 50.6,
       max: 52.8,
       mean: 51.7,
       stddev: 0.82,
-      models: ['BlackScholes', 'Heston'],
+      models: ['Black-Scholes', 'Heston', 'Variance Gamma'],
     });
     expect(shaped.exposureSweep[0]).toEqual(
       expect.objectContaining({
@@ -130,8 +130,13 @@ describe('shapeComputeRunRecord', () => {
       }),
     );
     expect(shaped.positions[0].symbol).toBe('QQQ250330P00500000');
+    expect(shaped.positions[0].positionId).toBeUndefined();
     expect(shaped.positions[0].modelCount).toBe(1);
+    expect(shaped.positions[0].models['Black-Scholes']).toBeDefined();
+    expect(shaped.positions[0].models.BlackScholes).toBeUndefined();
     expect(shaped.positions[1].models.Heston.calibrationSummary.rmse).toBe(0.012);
+    expect(shaped.positions[1].models.Heston.calibrationSummary.fallback).toBeUndefined();
+    expect(shaped.positions[1].models.Heston.calibrationSummary.executionPath).toBeUndefined();
     expect(shaped.positions[1].models.PDE.alternateCount).toBe(1);
   });
 
@@ -191,6 +196,7 @@ describe('shapeComputeRunRecord', () => {
                 params: {
                   alpha: 1.23456789,
                   beta: 0.5,
+                  seed: 12345,
                   enabled: true,
                   timestamp: '2026-03-29T07:18:38.387Z',
                   nested: { score: 99 },
@@ -219,6 +225,20 @@ describe('shapeComputeRunRecord', () => {
     });
     expect(shaped.positions[0].models.SABR.calibrationSummary.params.nested).toBeUndefined();
   });
+
+  test('emits a prose fallback status in compact model summaries', () => {
+    const record = makeRecord();
+    (record.positions[0].models as any).Heston.calibration.isFallback = true;
+    (record.positions[0].models as any).Heston.calibration.fallbackReason = 'insufficient_surface';
+
+    const shaped = shapeComputeRunRecord(record) as Record<string, any>;
+
+    expect(shaped.positions[1].models.Heston.calibrationSummary.isFallback).toBeUndefined();
+    expect(shaped.positions[1].models.Heston.calibrationSummary.fallback).toBeUndefined();
+    expect(shaped.positions[1].models.Heston.calibrationSummary.status).toBe('fallback (default parameters)');
+    expect(shaped.positions[1].models.Heston.calibrationSummary.statusReason).toBe('insufficient surface');
+    expect(shaped.positions[1].models.Heston.calibrationSummary.fallbackReason).toBeUndefined();
+  });
 });
 
 describe('recordMatchesComputeFilters', () => {
@@ -234,10 +254,24 @@ describe('recordMatchesComputeFilters', () => {
 describe('sanitizeComputeRunsWireOutput', () => {
   test('humanizes full-mode key levels and removes raw isFallback booleans', () => {
     const payload = { data: [makeRecord()] };
+    (payload.data[0] as any).data.portfolioAggregates.excluded = { byReason: { missingIv: 2 } };
+    (payload.data[0].positions[0].models as any).Heston.calibration.fallbackReason = 'insufficient_surface';
+    (payload.data[0].positions[0].models as any).Heston.calibration.seedRejections = [{ reason: 'bad_seed' }];
+    (payload.data[0].positions[0].models as any).Heston.calibration.executionPath = 'worker';
+    (payload.data[0].positions[0].models as any).Heston.calibration.economicPenalty = 1.25;
 
     sanitizeComputeRunsWireOutput(payload);
 
     const text = JSON.stringify(payload);
+    expect(text).not.toContain('portfolioAggregates');
+    expect(text).not.toContain('BlackScholes');
+    expect(text).toContain('Black-Scholes');
+    expect(text).not.toContain('fallbackReason');
+    expect(text).not.toContain('"seed"');
+    expect(text).not.toContain('seedRejections');
+    expect(text).not.toContain('executionPath');
+    expect(text).not.toContain('economicPenalty');
+    expect(text).not.toContain('byReason');
     expect(text).not.toContain('callWall');
     expect(text).not.toContain('putWall');
     expect(text).not.toContain('gammaFlip');
@@ -255,17 +289,27 @@ describe('sanitizeComputeRunsWireOutput', () => {
     const hestonCalibration = (payload.data[0].positions[0].models as any).Heston.calibration;
     expect(hestonCalibration.isFallback).toBeUndefined();
     expect(hestonCalibration.fallback).toBeUndefined();
+    expect(hestonCalibration.status).toBeUndefined();
+    expect(hestonCalibration.statusReason).toBeUndefined();
+    expect(hestonCalibration.fallbackReason).toBeUndefined();
+    expect(hestonCalibration.seedRejections).toBeUndefined();
+    expect(hestonCalibration.executionPath).toBeUndefined();
+    expect(hestonCalibration.economicPenalty).toBeUndefined();
   });
 
-  test('emits fallback only when the raw calibration actually fell back', () => {
+  test('emits fallback status only when the raw calibration actually fell back', () => {
     const payload = { data: [makeRecord()] };
     (payload.data[0].positions[0].models as any).Heston.calibration.isFallback = true;
+    (payload.data[0].positions[0].models as any).Heston.calibration.fallbackReason = 'insufficient_surface';
 
     sanitizeComputeRunsWireOutput(payload);
 
     const hestonCalibration = (payload.data[0].positions[0].models as any).Heston.calibration;
     expect(hestonCalibration.isFallback).toBeUndefined();
-    expect(hestonCalibration.fallback).toBe(true);
+    expect(hestonCalibration.fallback).toBeUndefined();
+    expect(hestonCalibration.status).toBe('fallback (default parameters)');
+    expect(hestonCalibration.statusReason).toBe('insufficient surface');
+    expect(hestonCalibration.fallbackReason).toBeUndefined();
   });
 });
 
@@ -331,7 +375,6 @@ describe('summarizeComputeRunsResponse', () => {
     expect(summarized.data).toHaveLength(1);
     expect(summarized.summary).toEqual({
       returnedRuns: 1,
-      latestRunKey: 'run-123',
       latestStatus: 'completed',
       latestStartedAt: '2026-03-29T08:00:00.000Z',
       statuses: ['completed'],
@@ -341,7 +384,7 @@ describe('summarizeComputeRunsResponse', () => {
     });
   });
 
-  test('trims per-position model lists in larger multi-run responses to stay assistant-friendly', () => {
+  test('summarizes per-position model consensus in multi-run responses instead of returning nested model dumps', () => {
     const base = makeRecord();
     const modelEntries = Object.fromEntries(
       Array.from({ length: 14 }, (_, index) => [
@@ -375,11 +418,19 @@ describe('summarizeComputeRunsResponse', () => {
     }) as Record<string, any>;
 
     expect(summarized.summary.returnedRuns).toBe(5);
-    expect(summarized.data[0].positions).toHaveLength(3);
-    expect(summarized.data[0].omittedPositionCount).toBe(1);
-    expect(summarized.data[0].positions[0].modelCount).toBe(14);
-    expect(Object.keys(summarized.data[0].positions[0].models)).toHaveLength(5);
-    expect(summarized.data[0].positions[0].omittedModelCount).toBe(9);
+    expect(summarized.data[0].positions).toHaveLength(2);
+    expect(summarized.data[0].positionsNotShown).toBe(2);
+    expect(summarized.data[0].omittedPositionCount).toBeUndefined();
+    expect(summarized.data[0].positions[0].models).toBeUndefined();
+    expect(summarized.data[0].positions[0].modelsNotShown).toBeUndefined();
+    expect(summarized.data[0].positions[0].omittedModelCount).toBeUndefined();
+    expect(summarized.data[0].positions[0].modelSummary).toEqual({
+      modelCount: 14,
+      modelsPreview: ['Model1', 'Model2', 'Model3'],
+      calibratedModelCount: 0,
+      price: { min: 1, max: 14, mean: 7.5 },
+      greeksAvailable: ['Delta'],
+    });
   });
 
   test('drops oldest rich runs until the shaped response fits the MCP budget', () => {
@@ -389,7 +440,7 @@ describe('summarizeComputeRunsResponse', () => {
     }) as Record<string, any>;
 
     expect(JSON.stringify(summarized).length).toBeLessThan(50 * 1024);
-    expect(summarized.data[0].runKey).toBe('rich-run-0');
+    expect(summarized.data[0].runKey).toBeUndefined();
     expect(summarized.summary.returnedRuns).toBe(summarized.data.length);
     expect(summarized._truncation_meta).toEqual(expect.objectContaining({
       returned: summarized.data.length,

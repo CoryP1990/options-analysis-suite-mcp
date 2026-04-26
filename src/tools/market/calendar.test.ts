@@ -72,7 +72,7 @@ describe('get_market_calendar — economic full=true wraps arrays as { events }'
     const { handler } = createHarness(res);
     const result = await handler({ type: 'economic', full: true });
     const parsed = JSON.parse(result.content[0].text);
-    expect(parsed).toEqual(res);
+    expect(parsed).toEqual({ events: [], note: 'empty' });
   });
 });
 

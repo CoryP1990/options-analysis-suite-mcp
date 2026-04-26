@@ -55,7 +55,7 @@ describe('get_short_data — full mode', () => {
     const result = await handler({ type: 'volume', symbol: 'SPY', full: true });
     const parsed = JSON.parse(result.content[0].text);
     expect(parsed.history).toHaveLength(30);
-    expect(parsed._history_meta).toEqual({ trimmed: true, original_length: 50, returned: 30 });
+    expect(parsed._history_meta).toBeUndefined();
   });
 
   test('type=volume full=true with short history leaves it untouched', async () => {

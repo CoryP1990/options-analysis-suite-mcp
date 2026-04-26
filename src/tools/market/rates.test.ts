@@ -55,7 +55,7 @@ describe('get_rates — benchmark adds 10Y meta annotation', () => {
     const { handler } = createHarness(stub);
     const result = await handler({ view: 'benchmark' });
     const parsed = JSON.parse(result.content[0].text);
-    expect(parsed._rate_meta).toEqual({ source: 'platform_10y_benchmark', maturity: '10Y' });
+    expect(parsed.rateContext).toEqual({ source: 'platform 10Y benchmark', maturity: '10Y' });
   });
 
   test('non-10Y response is left unannotated', async () => {
