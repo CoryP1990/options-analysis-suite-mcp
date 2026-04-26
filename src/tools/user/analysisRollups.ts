@@ -17,7 +17,7 @@ export function register(server: McpServer, client: ProxyClient): void {
         limit: z.number().int().min(1).max(90).default(10).describe('Max periods (default 10). Increase up to 90 for longer trends.'),
         full: z.boolean().default(false).describe('Return the raw synced rollup rows instead of the compact summary view.'),
       },
-      annotations: { readOnlyHint: true, openWorldHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
     toolHandler(async ({ symbol, period, limit, full }) => {
       const res = await client.get('/sync/analysis-data', { type: 'rollups', symbol, period, limit: String(limit) }) as any;

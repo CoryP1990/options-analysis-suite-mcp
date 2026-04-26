@@ -216,7 +216,7 @@ export function register(server: McpServer, client: ProxyClient): void {
         days: z.number().int().min(1).max(730).optional().describe('For market-trends: history length in days (1..730). For earnings-calendar: forward window size in days (1..90, default 14). Earnings-calendar enforces the 90-day cap at runtime.'),
         symbol: z.string().optional().describe('Only for earnings-calendar: filter to a single ticker.'),
       },
-      annotations: { readOnlyHint: true, openWorldHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
     toolHandler(async (args) => {
       const screener = args.screener as typeof SCREENER_IDS[number];

@@ -20,7 +20,7 @@ export function register(server: McpServer, client: ProxyClient): void {
         since: z.string().optional().describe('Only runs after this date (ISO format)'),
         full: z.boolean().default(false).describe('Return the raw synced compute-run rows instead of the compact assistant view'),
       },
-      annotations: { readOnlyHint: true, openWorldHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
     toolHandler(async ({ run_key, status, scope, quality, underlying, limit, since, full }) => {
       const fetchLimit = run_key ? 200 : full ? Math.min(limit, 50) : Math.min(limit * 5, 200);

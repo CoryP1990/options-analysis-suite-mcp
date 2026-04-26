@@ -15,7 +15,7 @@ export function register(server: McpServer, client: ProxyClient): void {
         days: z.number().int().min(1).max(1095).default(180).describe('Number of calendar days to return. Default 180 because FTD publication lags by about 21 days.'),
         full: z.boolean().optional().describe('Return the raw FTD history instead of the compact summary.'),
       },
-      annotations: { readOnlyHint: true, openWorldHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
     toolHandler(async ({ symbol, days, full }) => {
       const response = await client.get(`/sec/fail-to-deliver/${encodeURIComponent(symbol.toUpperCase())}`, {

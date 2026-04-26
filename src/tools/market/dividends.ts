@@ -14,7 +14,7 @@ export function register(server: McpServer, client: ProxyClient): void {
         symbol: z.string().describe('Ticker symbol (e.g., AAPL, MSFT)'),
         limit: z.number().int().min(1).max(100).default(20).describe('Maximum number of dividend records to return (default 20, max 100).'),
       },
-      annotations: { readOnlyHint: true, openWorldHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
     toolHandler(async ({ symbol, limit }) => {
       const upperSymbol = encodeURIComponent(symbol.toUpperCase());

@@ -48,7 +48,7 @@ export function register(server: McpServer, client: ProxyClient): void {
         include_symbols: z.boolean().optional().describe('For scope=market only: include all 124 per-symbol breakdowns (~180KB). Default false.'),
         full: z.boolean().optional().describe('For scope=symbol only: keep raw vector for multi-day requests. Default false.'),
       },
-      annotations: { readOnlyHint: true, openWorldHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
     toolHandler(async ({ scope, symbol, date, days, interval, include_symbols, full }) => {
       if (scope === 'market') {

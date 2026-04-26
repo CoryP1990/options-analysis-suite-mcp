@@ -45,7 +45,7 @@ export function register(server: McpServer, client: ProxyClient): void {
         weeks: z.number().int().min(1).max(260).optional().describe('Only for view=dealers/venues/all: history weeks (default 12).'),
         full: z.boolean().optional().describe('Only for view=summary: return the full raw OTC and ATS weekly history and bypass the size guard.'),
       },
-      annotations: { readOnlyHint: true, openWorldHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
     toolHandler(async ({ symbol, view, weeks, full }) => {
       const sym = encodeURIComponent(symbol.toUpperCase());

@@ -14,7 +14,7 @@ export function register(server: McpServer, client: ProxyClient): void {
         symbol: z.string().describe('Ticker symbol (e.g., AAPL, TSLA)'),
         full: z.boolean().optional().describe('Return the raw synced company-profile row instead of the compact normalized summary.'),
       },
-      annotations: { readOnlyHint: true, openWorldHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
     toolHandler(async ({ symbol, full }) => {
       const res = await client.get(`/company-profile/${encodeURIComponent(symbol.toUpperCase())}`) as any;

@@ -40,7 +40,7 @@ export function register(server: McpServer, client: ProxyClient): void {
         symbol: z.string().optional().describe('For ipo/dividend/split only: ticker filter applied after fetch.'),
         full: z.boolean().optional().describe('For economic only: bypass the catalyst-focused summary and return the raw feed.'),
       },
-      annotations: { readOnlyHint: true, openWorldHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
     toolHandler(async ({ type, from, to, limit, country, symbol, full }) => {
       if (type === 'economic') {

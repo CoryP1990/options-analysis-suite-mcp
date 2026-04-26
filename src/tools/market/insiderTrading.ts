@@ -14,7 +14,7 @@ export function register(server: McpServer, client: ProxyClient): void {
         symbol: z.string().describe('Ticker symbol'),
         full: z.boolean().optional().describe('Return the raw insider-trading feed without MCP response shaping.'),
       },
-      annotations: { readOnlyHint: true, openWorldHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
     toolHandler(async ({ symbol, full }) => {
       const upperSymbol = encodeURIComponent(symbol.toUpperCase());

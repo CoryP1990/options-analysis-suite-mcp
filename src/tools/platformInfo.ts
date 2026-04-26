@@ -78,7 +78,7 @@ export function registerPlatformInfo(server: McpServer): void {
         topic: z.enum(['models', 'greeks', 'capabilities', 'all']).default('all')
           .describe('Which topic to get info about'),
       },
-      annotations: { readOnlyHint: true, openWorldHint: false },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     },
     async ({ topic }) => {
       if (topic === 'all') {

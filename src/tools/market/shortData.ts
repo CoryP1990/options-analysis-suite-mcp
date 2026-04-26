@@ -28,7 +28,7 @@ export function register(server: McpServer, client: ProxyClient): void {
         symbol: z.string().describe('Ticker symbol (e.g., AAPL, GME)'),
         full: z.boolean().optional().describe('Return the raw FINRA payload instead of the compact summary.'),
       },
-      annotations: { readOnlyHint: true, openWorldHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
     toolHandler(async ({ type, symbol, full }) => {
       const upperSymbol = encodeURIComponent(symbol.toUpperCase());

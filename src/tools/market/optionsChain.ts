@@ -15,7 +15,7 @@ export function register(server: McpServer, client: ProxyClient): void {
         date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe('Optional market date in YYYY-MM-DD format. Defaults to the latest available options-chain session for this symbol.'),
         full: z.boolean().optional().describe('Return all contracts (can be 2000+ for broad ETFs). Default false — returns a compact summarized chain view.'),
       },
-      annotations: { readOnlyHint: true, openWorldHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
     toolHandler(async ({ symbol, date, full }) => {
       const params: Record<string, string> = {

@@ -15,7 +15,7 @@ export function register(server: McpServer, client: ProxyClient): void {
         symbol: z.string().optional().describe('Filter by ticker symbol'),
         limit: z.number().int().min(1).max(100).default(20).describe('Max annotations (default 20)'),
       },
-      annotations: { readOnlyHint: true, openWorldHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
     toolHandler(async ({ symbol, limit }) => {
       const params: Record<string, string> = { type: 'annotations', limit: String(limit) };

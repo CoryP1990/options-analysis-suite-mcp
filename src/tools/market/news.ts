@@ -110,7 +110,7 @@ export function register(server: McpServer, client: ProxyClient): void {
         symbol: z.string().describe('Ticker symbol'),
         full: z.boolean().optional().describe('Return the raw recent news feed without relevance filtering or response shaping.'),
       },
-      annotations: { readOnlyHint: true, openWorldHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
     toolHandler(async ({ symbol, full }) => {
       const upperSymbol = encodeURIComponent(symbol.toUpperCase());

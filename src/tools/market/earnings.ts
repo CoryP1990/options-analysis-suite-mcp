@@ -13,7 +13,7 @@ export function register(server: McpServer, client: ProxyClient): void {
       inputSchema: {
         symbol: z.string().describe('Ticker symbol'),
       },
-      annotations: { readOnlyHint: true, openWorldHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
     toolHandler(async ({ symbol }) => {
       const res = await client.get(`/earnings/${encodeURIComponent(symbol.toUpperCase())}`) as any;

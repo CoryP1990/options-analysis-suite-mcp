@@ -14,7 +14,7 @@ export function register(server: McpServer, client: ProxyClient): void {
         symbol: z.string().describe('Ticker symbol (e.g., AAPL, TSLA)'),
         full: z.boolean().optional().describe('Include the full raw analyst payload, including complete estimate and rating-history arrays. Default false returns a compact summary view.'),
       },
-      annotations: { readOnlyHint: true, openWorldHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
     toolHandler(async ({ symbol, full }) => {
       const upperSymbol = encodeURIComponent(symbol.toUpperCase());

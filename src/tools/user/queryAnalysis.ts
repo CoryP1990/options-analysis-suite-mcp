@@ -26,7 +26,7 @@ export function register(server: McpServer, client: ProxyClient): void {
         maxDte: z.number().optional().describe('Maximum days to expiry'),
         limit: z.number().int().min(1).max(100).default(20).describe('Max results (default 20)'),
       },
-      annotations: { readOnlyHint: true, openWorldHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
     toolHandler(async ({ symbol, model, since, minDelta, maxDelta, minVolatility, maxVolatility, minDte, maxDte, limit }) => {
       // Fetch a larger set from the server to allow client-side filtering

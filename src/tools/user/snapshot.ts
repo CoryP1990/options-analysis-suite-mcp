@@ -59,7 +59,7 @@ export function register(server: McpServer, client: ProxyClient): void {
         limit: z.number().int().min(1).max(50).default(3).describe('Max snapshots (default 3)'),
         full: z.boolean().default(false).describe('Return the full untrimmed payload including detail tables, correlation matrices, and per-position breakdowns.'),
       },
-      annotations: { readOnlyHint: true, openWorldHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
     toolHandler(async ({ type, symbol, limit, full }) => {
       if (type === 'gex') {

@@ -14,7 +14,7 @@ export function register(server: McpServer, client: ProxyClient): void {
         symbol: z.string().describe('Ticker symbol (e.g., AAPL, SPY)'),
         full: z.boolean().optional().describe('Return the full raw IV surface grid and bypass the size guard.'),
       },
-      annotations: { readOnlyHint: true, openWorldHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
     toolHandler(async ({ symbol, full }) => {
       const res = await client.get(`/scanner/iv-surface/${encodeURIComponent(symbol.toUpperCase())}`);

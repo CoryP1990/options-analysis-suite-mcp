@@ -15,7 +15,7 @@ export function register(server: McpServer, client: ProxyClient): void {
         days: z.number().int().min(1).max(1095).default(90).describe('Days of history (default 90). The default 90-day view returns the 30 most recent entries; larger windows may be summarized unless full=true.'),
         full: z.boolean().optional().describe('Return the full raw IV history and bypass the response size guard.'),
       },
-      annotations: { readOnlyHint: true, openWorldHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
     toolHandler(async ({ symbol, days, full }) => {
       const res = await client.get('/scanner/history', { symbol: symbol.toUpperCase(), days: String(days) }) as any;

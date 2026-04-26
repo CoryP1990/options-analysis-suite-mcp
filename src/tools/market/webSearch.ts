@@ -14,7 +14,7 @@ export function register(server: McpServer, client: ProxyClient): void {
         count: z.number().int().min(1).max(20).default(8).describe('Number of results'),
         freshness: z.enum(['pw', 'pm', 'py']).default('pw').describe('Recency: pw=past week, pm=past month, py=past year'),
       },
-      annotations: { readOnlyHint: true, openWorldHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
     async ({ query, count, freshness }) => {
       if (!client.hasSearchKey) {

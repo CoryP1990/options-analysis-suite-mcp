@@ -14,7 +14,7 @@ export function register(server: McpServer, client: ProxyClient): void {
         symbol: z.string().describe('Ticker symbol'),
         full: z.boolean().optional().describe('Return the raw filing list instead of the compact current-holder summary.'),
       },
-      annotations: { readOnlyHint: true, openWorldHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
     toolHandler(async ({ symbol, full }) => {
       const response = await client.get(`/activist-filings/${encodeURIComponent(symbol.toUpperCase())}`) as any;

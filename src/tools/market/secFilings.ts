@@ -33,7 +33,7 @@ export function register(server: McpServer, client: ProxyClient): void {
         type: FILING_TYPE.default('all').describe('Optional SEC form-type filter. Use 424B2/3/4/5 for prospectus supplements; default all returns the most recent mixed filing list.'),
         full: z.boolean().optional().describe('Return the raw SEC EDGAR filing payload instead of the compact summary.'),
       },
-      annotations: { readOnlyHint: true, openWorldHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
     toolHandler(async ({ symbol, limit, type, full }) => {
       const upperSymbol = encodeURIComponent(symbol.toUpperCase());

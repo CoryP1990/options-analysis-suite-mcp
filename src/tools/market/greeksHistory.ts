@@ -23,7 +23,7 @@ export function register(server: McpServer, client: ProxyClient): void {
         moneyness: z.enum(['all', 'atm', 'otm', 'itm']).optional().describe('Filter strikes by delta-based moneyness bucket. Default all.'),
         full: z.boolean().optional().describe('Return the full raw Greeks history and bypass response shaping.'),
       },
-      annotations: { readOnlyHint: true, openWorldHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
     toolHandler(async ({ symbol, start, end, dteMin, dteMax, moneyness, full }) => {
       const res = await client.get(`/scanner/greeks-history/${encodeURIComponent(symbol.toUpperCase())}`, {

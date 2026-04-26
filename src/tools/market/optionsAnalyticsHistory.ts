@@ -21,7 +21,7 @@ export function register(server: McpServer, client: ProxyClient): void {
         interval: z.enum(['daily', 'weekly', 'biweekly', 'monthly']).default('daily').describe('Sampling interval (default daily)'),
         full: z.boolean().optional().describe('Return full untrimmed data, bypassing size guard. Use with narrow date ranges.'),
       },
-      annotations: { readOnlyHint: true, openWorldHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
     toolHandler(async ({ symbol, days, from: fromDate, to: toDate, interval, full }) => {
       const fmt = (d: Date) => d.toISOString().split('T')[0];

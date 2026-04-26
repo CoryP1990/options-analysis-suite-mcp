@@ -17,7 +17,7 @@ export function register(server: McpServer, client: ProxyClient): void {
         since: z.string().optional().describe('Only results after this date (ISO format)'),
         full: z.boolean().default(false).describe('Return full untrimmed data including nested model outputs and calibration parameters'),
       },
-      annotations: { readOnlyHint: true, openWorldHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
     toolHandler(async ({ symbol, limit, since, full }) => {
       const params: Record<string, string> = { type: 'fft', limit: String(limit) };

@@ -133,7 +133,7 @@ export function handleProtectedResourceMetadata(host: string | undefined): strin
   return JSON.stringify({
     resource: base,
     authorization_servers: [base],
-    scopes_supported: ['openid', 'mcp'],
+    scopes_supported: ['mcp'],
   });
 }
 
@@ -149,7 +149,7 @@ export function handleAuthServerMetadata(host: string | undefined): string {
     grant_types_supported: ['authorization_code'],
     code_challenge_methods_supported: ['S256'],
     token_endpoint_auth_methods_supported: ['none'],
-    scopes_supported: ['openid', 'mcp'],
+    scopes_supported: ['mcp'],
   });
 }
 
@@ -460,21 +460,40 @@ export function handleClientRegistration(body: string): { status: number; header
   try {
     const req = JSON.parse(body);
 
-    // Validate requested metadata — reject unsupported values
-    if (req.grant_types && !req.grant_types.every((g: string) => g === 'authorization_code')) {
-      return { status: 400, headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: 'invalid_client_metadata', error_description: 'Only authorization_code grant type is supported' }) };
+    // Per RFC 7591, the server filters requested metadata to what it supports
+    // and returns the actual values in the response. Rejecting clients that ask
+    // for refresh_token alongside authorization_code (as ChatGPT does) breaks
+    // DCR for those clients with no benefit.
+    if (req.grant_types !== undefined) {
+      if (!Array.isArray(req.grant_types)) {
+        return { status: 400, headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ error: 'invalid_client_metadata', error_description: 'grant_types must be an array' }) };
+      }
+      if (!req.grant_types.includes('authorization_code')) {
+        return { status: 400, headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ error: 'invalid_client_metadata', error_description: 'authorization_code grant type must be requested' }) };
+      }
     }
-    if (req.response_types && !req.response_types.every((r: string) => r === 'code')) {
-      return { status: 400, headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: 'invalid_client_metadata', error_description: 'Only code response type is supported' }) };
+    if (req.response_types !== undefined) {
+      if (!Array.isArray(req.response_types)) {
+        return { status: 400, headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ error: 'invalid_client_metadata', error_description: 'response_types must be an array' }) };
+      }
+      if (!req.response_types.includes('code')) {
+        return { status: 400, headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ error: 'invalid_client_metadata', error_description: 'code response type must be requested' }) };
+      }
     }
     if (req.token_endpoint_auth_method && req.token_endpoint_auth_method !== 'none') {
       return { status: 400, headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ error: 'invalid_client_metadata', error_description: 'Only none token_endpoint_auth_method is supported' }) };
     }
     // Validate redirect_uris are HTTPS (or localhost for dev)
-    if (req.redirect_uris && Array.isArray(req.redirect_uris)) {
+    if (req.redirect_uris !== undefined) {
+      if (!Array.isArray(req.redirect_uris)) {
+        return { status: 400, headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ error: 'invalid_redirect_uri', error_description: 'redirect_uris must be an array' }) };
+      }
       for (const uri of req.redirect_uris) {
         try {
           const parsed = new URL(uri);
@@ -502,6 +521,7 @@ export function handleClientRegistration(body: string): { status: number; header
         grant_types: ['authorization_code'],
         response_types: ['code'],
         token_endpoint_auth_method: 'none',
+        scope: 'mcp',
       }),
     };
   } catch {

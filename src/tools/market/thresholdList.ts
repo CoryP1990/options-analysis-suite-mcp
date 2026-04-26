@@ -15,7 +15,7 @@ export function register(server: McpServer, client: ProxyClient): void {
         days: z.number().int().min(1).max(90).default(30).describe('Number of days to check (default 30, max 90)'),
         full: z.boolean().optional().describe('Return the raw threshold-history payload instead of the compact summary.'),
       },
-      annotations: { readOnlyHint: true, openWorldHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
     toolHandler(async ({ symbol, days, full }) => {
       // Backend requires comma-separated dates. Generate last N trading days (skip weekends).

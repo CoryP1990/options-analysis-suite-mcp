@@ -14,7 +14,7 @@ export function register(server: McpServer, client: ProxyClient): void {
         symbol: z.string().describe('Ticker symbol (e.g., AAPL, SPY)'),
         days: z.number().int().min(1).max(60).default(30).describe('Number of trading days (default 30, max 60)'),
       },
-      annotations: { readOnlyHint: true, openWorldHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
     toolHandler(async ({ symbol, days }) => {
       const res = await client.get('/stock-prices', {

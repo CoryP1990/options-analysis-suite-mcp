@@ -21,7 +21,7 @@ export function register(server: McpServer, client: ProxyClient): void {
         since: z.string().optional().describe('Only results after this date (ISO format)'),
         full: z.boolean().default(false).describe('Return full untrimmed data including detail tables, correlation matrices, and per-position breakdowns'),
       },
-      annotations: { readOnlyHint: true, openWorldHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
     toolHandler(async ({ symbol, model, limit, since, full }) => {
       const fetchLimit = full ? limit : Math.min(limit * 5, 200);

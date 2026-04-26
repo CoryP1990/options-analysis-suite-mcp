@@ -14,7 +14,7 @@ export function register(server: McpServer, client: ProxyClient): void {
         symbol: z.string().optional().describe('Ticker symbol (optional — omit for all current halts)'),
         full: z.boolean().optional().describe('Return the raw halt feed instead of the compact active/recent summary. Default false.'),
       },
-      annotations: { readOnlyHint: true, openWorldHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
     toolHandler(async ({ symbol, full }) => {
       if (symbol) {

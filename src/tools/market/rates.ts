@@ -27,7 +27,7 @@ export function register(server: McpServer, client: ProxyClient): void {
         weeks: z.number().int().min(1).max(52).optional().describe('Only for view=curve: history weeks for trend context (default 12).'),
         full: z.boolean().optional().describe('Only for view=curve: return the raw curve payload with historical observations.'),
       },
-      annotations: { readOnlyHint: true, openWorldHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
     toolHandler(async ({ view, weeks, full }) => {
       if (view === 'benchmark') {
