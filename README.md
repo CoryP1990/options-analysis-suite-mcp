@@ -114,4 +114,4 @@ Without sync enabled, the assistant can still use the market and research tools.
 
 ## Support
 
-Contact `optionsanalysissuite@gmail.com` or visit `optionsanalysissuite.com/documentation`.
+Contact `support@optionsanalysissuite.com` or visit `optionsanalysissuite.com/documentation`.
