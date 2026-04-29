@@ -285,6 +285,61 @@ function getLegacyVariants(model: Record<string, unknown>): Record<string, unkno
     .sort((left, right) => getVariantPriority(right) - getVariantPriority(left));
 }
 
+/** Compact form of a persisted Monte Carlo `mcStats` block. Mirrors the
+ *  data-api `McStats` schema so MCP recall never lies about which path count
+ *  the confidence interval was computed against. */
+function compactMcStats(value: unknown): Record<string, number> | undefined {
+  const stats = getObject(value);
+  if (!stats) return undefined;
+  const stdError = round(stats.stdError, 6);
+  const ciLow = round(stats.ciLow, 6);
+  const ciHigh = round(stats.ciHigh, 6);
+  const nPathsRaw = typeof stats.nPaths === 'number' && Number.isFinite(stats.nPaths)
+    ? Math.round(stats.nPaths)
+    : undefined;
+  if (stdError === undefined && ciLow === undefined && ciHigh === undefined && nPathsRaw === undefined) {
+    return undefined;
+  }
+  const out: Record<string, number> = {};
+  if (stdError !== undefined) out.stdError = stdError;
+  if (ciLow !== undefined) out.ciLow = ciLow;
+  if (ciHigh !== undefined) out.ciHigh = ciHigh;
+  if (nPathsRaw !== undefined) out.nPaths = nPathsRaw;
+  return out;
+}
+
+/** Compact form of a persisted Monte Carlo distribution block. Always keeps
+ *  percentiles + count + range. Histogram (`binEdges` + `counts`) is heavy
+ *  and dropped here — MCP responses live under a 50 KB budget that 50× bin
+ *  arrays per variant would blow up on a multi-position portfolio. */
+function compactDistributionSummary(value: unknown): Record<string, unknown> | undefined {
+  const distribution = getObject(value);
+  if (!distribution) return undefined;
+  const percentiles = getObject(distribution.percentiles);
+  const out: Record<string, unknown> = {};
+  if (typeof distribution.count === 'number' && Number.isFinite(distribution.count)) {
+    out.count = Math.round(distribution.count);
+  }
+  if (typeof distribution.mean === 'number' && Number.isFinite(distribution.mean)) {
+    out.mean = round(distribution.mean, 6);
+  }
+  if (typeof distribution.min === 'number' && Number.isFinite(distribution.min)) {
+    out.min = round(distribution.min, 6);
+  }
+  if (typeof distribution.max === 'number' && Number.isFinite(distribution.max)) {
+    out.max = round(distribution.max, 6);
+  }
+  if (percentiles) {
+    const compactPercentiles = Object.fromEntries(
+      Object.entries(percentiles)
+        .map(([key, pValue]) => [key, round(pValue, 6)])
+        .filter(([, pValue]) => pValue !== undefined),
+    );
+    if (Object.keys(compactPercentiles).length > 0) out.percentiles = compactPercentiles;
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
 function shapeRepresentativeSummary(value: unknown): Record<string, unknown> | undefined {
   const representative = getObject(value);
   if (!representative) return undefined;
@@ -293,6 +348,8 @@ function shapeRepresentativeSummary(value: unknown): Record<string, unknown> | u
     price: compactMetricValue(representative.price),
     greeks: compactGreekMap(representative.greeks),
     dimensions: getObject(representative.dimensions) ?? undefined,
+    mcStats: compactMcStats(representative.mcStats),
+    distribution: compactDistributionSummary(representative.distribution),
   };
 
   if (typeof representative.error === 'string' && representative.error.length > 0) {
@@ -330,6 +387,8 @@ function shapeModelSummary(value: unknown): Record<string, unknown> | undefined 
     summary.dimensions = representative.dimensions;
     summary.error = representative.error;
     summary.diagnostics = representative.diagnostics;
+    summary.mcStats = representative.mcStats;
+    summary.distribution = representative.distribution;
   }
 
   const calibration = shapeCalibrationSummary(model.calibration);
