@@ -2,6 +2,7 @@ type MarketRegimeMarket = {
   [key: string]: unknown;
   vector?: unknown;
   drivers?: unknown;
+  top_driver?: unknown;
   exposures?: unknown;
 };
 
@@ -23,12 +24,7 @@ export function humanizeFeature(name: string): string {
  *  the humanized label. Returns a new array; leaves non-array input untouched. */
 export function humanizeDrivers(drivers: unknown): unknown {
   if (!Array.isArray(drivers)) return drivers;
-  return drivers.map((entry) => {
-    if (!isRecord(entry)) return entry;
-    const next: Record<string, unknown> = { ...entry };
-    if (typeof next.feature === 'string') next.feature = humanizeFeature(next.feature);
-    return next;
-  });
+  return drivers.map(humanizeDriverEntry);
 }
 
 /** Rewrite the keys of a feature-keyed record (e.g. z-scores, raw values) to
@@ -38,8 +34,19 @@ export function humanizeFeatureRecord(rec: unknown): unknown {
   return Object.fromEntries(Object.entries(rec).map(([k, v]) => [humanizeFeature(k), v]));
 }
 
+/** Humanize a single driver-shaped record (a `{ feature, z, ... }` entry).
+ *  Used for both array elements (drivers[]) and the singleton top_driver
+ *  field returned to public/non-Pro callers on /regime/current. */
+function humanizeDriverEntry(entry: unknown): unknown {
+  if (!isRecord(entry)) return entry;
+  const next: Record<string, unknown> = { ...entry };
+  if (typeof next.feature === 'string') next.feature = humanizeFeature(next.feature);
+  return next;
+}
+
 /** Apply driver/feature humanization to a regime entry in place — covers the
- *  three places snake_case feature names appear: entry.drivers[].feature,
+ *  four places snake_case feature names appear: entry.drivers[].feature,
+ *  entry.top_driver.feature (public-tier landing field), and
  *  entry.vector.{z,raw,data_quality} key sets. Used by raw-path returns
  *  (include_symbols=true, scope=symbol full=true, scope=intraday) so the wire
  *  output is consistent with the default-shaped response. */
@@ -47,6 +54,9 @@ export function humanizeRegimeEntry(entry: unknown): void {
   if (!isRecord(entry)) return;
   if (Array.isArray(entry.drivers)) {
     entry.drivers = humanizeDrivers(entry.drivers);
+  }
+  if (entry.top_driver != null) {
+    entry.top_driver = humanizeDriverEntry(entry.top_driver);
   }
   const vector = isRecord(entry.vector) ? entry.vector : null;
   if (!vector) return;
@@ -72,6 +82,10 @@ export function shapeMarketRegimeResponse(payload: unknown): unknown {
 
   if (Array.isArray(market.drivers)) {
     shaped.drivers = humanizeDrivers(market.drivers);
+  }
+
+  if (market.top_driver != null) {
+    shaped.top_driver = humanizeDriverEntry(market.top_driver);
   }
 
   delete shaped.vector;

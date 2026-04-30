@@ -84,4 +84,25 @@ describe('shapeMarketRegimeResponse', () => {
     expect(market.feature_z_scores).toBeUndefined();
     expect(market._feature_vector_meta).toBeUndefined();
   });
+
+  test('humanizes the top_driver feature for public-tier responses', () => {
+    // Public/non-Pro callers receive only top_driver (no full drivers
+    // array) per the proxy gating in /regime/current. Without
+    // humanization the LLM would surface raw 'skew_pressure' alongside
+    // humanized 'Skew Pressure' values from the Pro path.
+    const payload = {
+      market: {
+        date: '2026-04-29',
+        label: 'NORMAL',
+        stress_score: 0.18,
+        top_driver: { feature: 'skew_pressure', z: 1.4 },
+      },
+    };
+
+    const result = shapeMarketRegimeResponse(payload) as Record<string, unknown>;
+    const market = result.market as Record<string, unknown>;
+
+    expect(market.top_driver).toEqual({ feature: 'Skew Pressure', z: 1.4 });
+    expect(market.drivers).toBeUndefined();
+  });
 });
