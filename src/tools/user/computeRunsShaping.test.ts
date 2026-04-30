@@ -317,6 +317,37 @@ describe('sanitizeComputeRunsWireOutput', () => {
     expect(hestonCalibration.statusReason).toBe('insufficient surface');
     expect(hestonCalibration.fallbackReason).toBeUndefined();
   });
+
+  test('drops non-fallback statusReason values from full-mode payloads', () => {
+    const payload = { data: [makeRecord()] };
+    (payload.data[0].positions[0].models as any).Heston.calibration.status = 'completed';
+    (payload.data[0].positions[0].models as any).Heston.calibration.statusReason = 'internal_diag: seed search exhausted';
+
+    sanitizeComputeRunsWireOutput(payload);
+
+    const hestonCalibration = (payload.data[0].positions[0].models as any).Heston.calibration;
+    expect(hestonCalibration.status).toBe('completed');
+    expect(hestonCalibration.statusReason).toBeUndefined();
+  });
+
+  test('drops statusReason from fallback rows when no humanizable reason is available', () => {
+    const payload = { data: [makeRecord()] };
+    // isFallback=true triggers the fallback branch, but with both reason
+    // fields non-humanizable (empty / non-string), the sanitizer can't produce
+    // a user-facing reason and must drop the field rather than leave the raw
+    // value visible.
+    (payload.data[0].positions[0].models as any).Heston.calibration.isFallback = true;
+    (payload.data[0].positions[0].models as any).Heston.calibration.statusReason = '';
+    (payload.data[0].positions[0].models as any).Heston.calibration.fallbackReason = null;
+
+    sanitizeComputeRunsWireOutput(payload);
+
+    const hestonCalibration = (payload.data[0].positions[0].models as any).Heston.calibration;
+    expect(hestonCalibration.status).toBe('fallback (default parameters)');
+    expect(hestonCalibration.statusReason).toBeUndefined();
+    expect(hestonCalibration.fallbackReason).toBeUndefined();
+    expect(hestonCalibration.isFallback).toBeUndefined();
+  });
 });
 
 describe('summarizeComputeRunsResponse', () => {

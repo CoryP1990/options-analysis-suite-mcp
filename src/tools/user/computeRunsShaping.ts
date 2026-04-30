@@ -246,6 +246,9 @@ export function sanitizeComputeRunsWireOutput(value: unknown, depth = 0): void {
     const reason = humanizeIdentifier(obj.fallbackReason)
       ?? humanizeIdentifier(obj.statusReason);
     if (reason) obj.statusReason = reason;
+    else delete obj.statusReason;
+  } else {
+    delete obj.statusReason;
   }
   delete obj.isFallback;
   delete obj.fallback;
