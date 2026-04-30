@@ -238,8 +238,13 @@ export function sanitizeComputeRunsWireOutput(value: unknown, depth = 0): void {
       if (shaped) obj.models = shaped;
     }
   }
+  // Idempotent: also recognize the already-sanitized FALLBACK_STATUS so a
+  // second pass on the same object (e.g., when callers share a calibration
+  // ref across positions) doesn't drop a previously-set statusReason via
+  // the else branch below.
   const isFallbackTriggered = obj.isFallback === true
     || obj.status === 'fallback'
+    || obj.status === FALLBACK_STATUS
     || obj.fallback === true;
   if (isFallbackTriggered) {
     obj.status = FALLBACK_STATUS;
