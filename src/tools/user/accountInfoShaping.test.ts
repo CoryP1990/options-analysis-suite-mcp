@@ -21,9 +21,13 @@ describe('shapeAccountInfo', () => {
 
     expect(shaped.authenticated).toBe(true);
     expect(shaped.subscriptionActive).toBe(true);
-    expect(shaped.email).toBe('user@example.com');
     expect(shaped.subscription.tier).toBe('annual');
     expect(shaped.subscription.status).toBe('active');
+    // PII redaction: email/role are intentionally omitted from the LLM-readable
+    // response to limit prompt-injection exfiltration surface. Asserting absence
+    // guards against regression.
+    expect(shaped.email).toBeUndefined();
+    expect(shaped.role).toBeUndefined();
   });
 
   it('treats developer or bypass users as subscription-active even without a normal subscription row', () => {
@@ -42,6 +46,8 @@ describe('shapeAccountInfo', () => {
     expect(shaped.isDeveloper).toBe(true);
     expect(shaped.subscriptionActive).toBe(true);
     expect(shaped.subscription.tier).toBe('none');
+    expect(shaped.email).toBeUndefined();
+    expect(shaped.role).toBeUndefined();
   });
 
   it('returns a truthful unauthenticated state when no cached profile exists', () => {

@@ -19,8 +19,6 @@ export function shapeAccountInfo(profile: UserProfile | null): Record<string, un
 
   return {
     authenticated: true,
-    email: profile.user.email,
-    role: profile.user.role,
     isDeveloper,
     bypassSubscription,
     subscriptionActive,
