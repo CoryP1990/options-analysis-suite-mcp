@@ -63,4 +63,10 @@ describe('shapeCompanyProfileResponse', () => {
     expect(shaped.description).toBeNull();
     expect(shaped.error).toBe('No company profile available for this symbol');
   });
+
+
+  it('returns null for missing payloads so toolHandler can emit a no-data message', () => {
+    expect(shapeCompanyProfileResponse(null)).toBeNull();
+  });
+
 });

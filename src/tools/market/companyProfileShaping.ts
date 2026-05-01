@@ -52,9 +52,10 @@ function trimDescription(description: string | null | undefined, maxLength: numb
 }
 
 export function shapeCompanyProfileResponse(
-  payload: CompanyProfileResponse,
+  payload: CompanyProfileResponse | null,
   descriptionCap = DEFAULT_DESCRIPTION_CAP,
-): Record<string, unknown> {
+): Record<string, unknown> | null {
+  if (!payload) return null;
   const { text: description, trimmed } = trimDescription(payload.description, descriptionCap);
   const sharesOutstanding = typeof payload.shares_outstanding === 'number' ? payload.shares_outstanding : null;
   const freeFloat = typeof payload.free_float_shares === 'number' ? payload.free_float_shares : null;

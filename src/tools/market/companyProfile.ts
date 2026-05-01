@@ -18,7 +18,11 @@ export function register(server: McpServer, client: ProxyClient): void {
     },
     toolHandler(async ({ symbol, full }) => {
       const res = await client.get(`/company-profile/${encodeURIComponent(symbol.toUpperCase())}`) as any;
-      if (full) return { _skipSizeGuard: true, data: res };
+      // Both branches must guard against the proxy's documented null-on-404
+      // return. Without the ternary, full=true would emit literal "null" via
+      // JSON.stringify(sanitizeMcpWireOutput(null)); returning null lets the
+      // toolHandler emit the standard "No data available" message instead.
+      if (full) return res ? { _skipSizeGuard: true, data: res } : null;
       return shapeCompanyProfileResponse(res);
     }),
   );
