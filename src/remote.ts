@@ -11,6 +11,12 @@ import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 import { TokenManager } from './auth/tokenManager.js';
 import { ProxyClient } from './proxy/proxyClient.js';
 import { createMcpServer } from './server.js';
+import {
+  MCP_ICON_CONTENT_TYPE,
+  MCP_ICON_PATH,
+  getBrandingHomeHtml,
+  getMcpIconBytes,
+} from './branding.js';
 import { AuthError, SubscriptionError } from './types.js';
 import {
   resolveOAuthToken,
@@ -155,6 +161,9 @@ function validateSessionOwnership(session: Session, apiKey: string, res: import(
 // --- HTTP server ---
 
 const server = createServer(async (req, res) => {
+  const requestUrl = new URL(req.url || '/', PUBLIC_BASE_URL);
+  const pathname = requestUrl.pathname;
+
   // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, HEAD, OPTIONS');
@@ -167,38 +176,56 @@ const server = createServer(async (req, res) => {
     return;
   }
 
-  if (req.url === '/health') {
+  if (pathname === '/' && (req.method === 'GET' || req.method === 'HEAD')) {
+    const body = getBrandingHomeHtml();
+    res.writeHead(200, {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': 'public, max-age=300',
+      'Content-Length': Buffer.byteLength(body),
+    });
+    res.end(req.method === 'HEAD' ? undefined : body);
+    return;
+  }
+
+  if (pathname === '/health') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ status: 'ok', sessions: sessions.size }));
     return;
   }
 
-  // --- Favicon redirects (Google favicon API uses these for tool-call/directory icons) ---
+  // --- Same-origin icon routes (Google favicon API and MCP serverInfo.icons consume these) ---
 
-  if (req.url === '/favicon.ico' || req.url === '/favicon.svg') {
-    res.writeHead(302, { Location: 'https://optionsanalysissuite.com/favicon.svg' });
-    res.end();
+  if (
+    (pathname === MCP_ICON_PATH || pathname === '/favicon.ico' || pathname === '/favicon.svg')
+    && (req.method === 'GET' || req.method === 'HEAD')
+  ) {
+    const icon = getMcpIconBytes();
+    res.writeHead(200, {
+      'Content-Type': MCP_ICON_CONTENT_TYPE,
+      'Cache-Control': 'public, max-age=3600',
+      'Content-Length': icon.byteLength,
+    });
+    res.end(req.method === 'HEAD' ? undefined : icon);
     return;
   }
 
   // --- OAuth & .well-known routes ---
 
-  if (req.url === '/.well-known/oauth-protected-resource') {
+  if (pathname === '/.well-known/oauth-protected-resource') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(handleProtectedResourceMetadata(req.headers.host));
     return;
   }
 
-  if (req.url === '/.well-known/oauth-authorization-server') {
+  if (pathname === '/.well-known/oauth-authorization-server') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(handleAuthServerMetadata(req.headers.host));
     return;
   }
 
-  if (req.url?.startsWith('/oauth/authorize')) {
+  if (pathname === '/oauth/authorize') {
     if (req.method === 'GET') {
-      const url = new URL(req.url, `https://${req.headers.host}`);
-      const result = handleAuthorizeGet(url.searchParams);
+      const result = handleAuthorizeGet(requestUrl.searchParams);
       res.writeHead(result.status, result.headers);
       res.end(result.body);
       return;
@@ -216,7 +243,7 @@ const server = createServer(async (req, res) => {
     }
   }
 
-  if (req.url === '/oauth/token' && req.method === 'POST') {
+  if (pathname === '/oauth/token' && req.method === 'POST') {
     try {
       const body = await readBody(req);
       const result = handleTokenExchange(body);
@@ -228,7 +255,7 @@ const server = createServer(async (req, res) => {
     return;
   }
 
-  if (req.url === '/oauth/register' && req.method === 'POST') {
+  if (pathname === '/oauth/register' && req.method === 'POST') {
     try {
       const body = await readBody(req);
       const result = handleClientRegistration(body);
@@ -242,7 +269,7 @@ const server = createServer(async (req, res) => {
 
   // --- MCP endpoint ---
 
-  if (req.url !== '/mcp') {
+  if (pathname !== '/mcp') {
     res.writeHead(404);
     res.end('Not Found');
     return;

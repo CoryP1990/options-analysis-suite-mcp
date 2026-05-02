@@ -32,7 +32,10 @@ if (isRemote) {
     process.exit(1);
   }
 
+  await copyFile('./mcp-icon.png', `${DIST}/mcp-icon.png`);
+
   console.log('✓ Bundle: dist-remote/remote.js');
+  console.log('✓ Copied mcp-icon.png to dist-remote/');
   console.log('\nRemote build complete. Deploy dist-remote/ to Railway.');
 } else {
   // --- Stdio (Claude Desktop) build ---
