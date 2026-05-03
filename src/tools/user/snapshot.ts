@@ -79,7 +79,7 @@ export function register(server: McpServer, client: ProxyClient): void {
         type: z.enum(['gex', 'portfolio', 'risk']).describe('Which snapshot feed to fetch.'),
         symbol: z.string().optional().describe('Required for type=gex; ignored otherwise.'),
         limit: z.number().int().min(1).max(50).default(3).describe('Max snapshots (default 3)'),
-        full: z.boolean().default(false).describe('Return the full untrimmed payload including detail tables, correlation matrices, and per-position breakdowns.'),
+        full: z.boolean().default(false).describe('Return the less-summarized payload including detail tables, correlation matrices, and per-position breakdowns (raw shape, still subject to the MCP response budget).'),
       },
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },

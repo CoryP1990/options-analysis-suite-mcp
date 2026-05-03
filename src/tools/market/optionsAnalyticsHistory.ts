@@ -19,7 +19,7 @@ export function register(server: McpServer, client: ProxyClient): void {
         from: z.string().optional().describe('Start date (YYYY-MM-DD). Overrides days parameter.'),
         to: z.string().optional().describe('End date (YYYY-MM-DD). Overrides days parameter.'),
         interval: z.enum(['daily', 'weekly', 'biweekly', 'monthly']).default('daily').describe('Sampling interval (default daily)'),
-        full: z.boolean().optional().describe('Return full untrimmed data, bypassing size guard. Use with narrow date ranges.'),
+        full: z.boolean().optional().describe('Return less-summarized data (raw shape, still subject to the MCP response budget). Use with narrow date ranges.'),
       },
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },

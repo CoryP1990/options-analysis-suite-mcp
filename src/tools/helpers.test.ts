@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { applyResponseSizeGuard, sanitizeMcpWireOutput } from './helpers.js';
+import { applyResponseSizeGuard, sanitizeMcpWireOutput, toolHandler } from './helpers.js';
 
 describe('applyResponseSizeGuard', () => {
   test('keeps sub-50KB responses intact even when arrays exceed 50 items', () => {
@@ -176,5 +176,29 @@ describe('sanitizeMcpWireOutput', () => {
     expect(sanitized.data[1].positionContributions).toBeUndefined();
     expect(sanitized.data[1].position_contributions).toBeUndefined();
     expect(sanitized.data[2].id).toBe(23);
+  });
+});
+
+describe('toolHandler — _skipSizeGuard bypass removal', () => {
+  test('legacy { _skipSizeGuard: true, data } is unwrapped AND size-guarded', async () => {
+    // Pre-fix, this payload would have skipped applyResponseSizeGuard and
+    // serialized verbatim. Post-fix, the wrapper is unwrapped and the
+    // inner data is forced through the size guard like everything else.
+    const huge = {
+      data: Array.from({ length: 200 }, (_, i) => ({
+        id: i,
+        blob: 'x'.repeat(2000),
+      })),
+    };
+    const handler = toolHandler(async () => ({ _skipSizeGuard: true, data: huge }));
+    const result = await handler({});
+    const parsed = JSON.parse(result.content[0].text);
+
+    // Wrapper unwrapped: top-level is the inner shape, not { _skipSizeGuard, data }
+    expect(parsed._skipSizeGuard).toBeUndefined();
+    // Size-guarded: 200 × 2KB rows would be ~400KB raw; guard truncates to 5
+    expect(parsed.data).toHaveLength(5);
+    // Output is well under the 50KB cap
+    expect(result.content[0].text.length).toBeLessThan(50 * 1024);
   });
 });

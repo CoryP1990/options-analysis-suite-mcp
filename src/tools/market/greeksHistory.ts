@@ -21,7 +21,7 @@ export function register(server: McpServer, client: ProxyClient): void {
         dteMin: z.number().int().min(0).optional().describe('Minimum days to expiration filter. Default 0.'),
         dteMax: z.number().int().min(0).optional().describe('Maximum days to expiration filter. Default 999.'),
         moneyness: z.enum(['all', 'atm', 'otm', 'itm']).optional().describe('Filter strikes by delta-based moneyness bucket. Default all.'),
-        full: z.boolean().optional().describe('Return the full raw Greeks history and bypass response shaping.'),
+        full: z.boolean().optional().describe('Return less-summarized Greeks history (raw shape, still subject to the MCP response budget).'),
       },
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
