@@ -154,14 +154,17 @@ describe('TokenManager — staging prevents inactive-token leak through swallowe
     expect((tm as any).profile?.subscription?.status).not.toBe('canceled');
   });
 
-  test('scheduled-timer swallow path: post-failure getAccessToken does NOT return the inactive token', async () => {
+  test('scheduled-timer swallow path: post-failure getAccessToken rejects with SubscriptionError', async () => {
     fakes.login.mockImplementation(async () => freshTokens());
     fakes.getProfile.mockImplementation(async () => activeProfile());
     const tm = new TokenManager('https://auth', 'a@b.c', 'pw');
     await tm.initialize();
     tm.destroy();
 
-    // Set up the inactive-on-refresh scenario.
+    // Force the next getAccessToken to enter the refresh path.
+    (tm as any).tokens = expiredTokens();
+
+    // Refresh would return a fresh-but-inactive token if staging didn't gate.
     fakes.refreshAccessToken.mockImplementation(async () => ({
       accessToken: 'INACTIVE_FRESH', refreshToken: 'r-inactive', expiresAt: Date.now() + 3_600_000,
     }));
@@ -171,9 +174,10 @@ describe('TokenManager — staging prevents inactive-token leak through swallowe
     // (mirrors scheduleRefresh's try { await refreshPromise; } catch {}).
     try { await (tm as any).doRefresh(); } catch { /* swallowed by scheduler */ }
 
-    // Critical assertion: this.tokens must NOT be the inactive fresh token.
-    // (If it were, the next getAccessToken would happily return it because
-    // it's not expired, bypassing subscription check.)
-    expect((tm as any).tokens.accessToken).not.toBe('INACTIVE_FRESH');
+    // The end-to-end assertion: the next getAccessToken must NOT return a
+    // fresh inactive token. Because staging held back the commit, this.tokens
+    // is still the expired stub — getAccessToken re-enters refresh, refresh
+    // returns inactive again, SubscriptionError surfaces.
+    await expect(tm.getAccessToken()).rejects.toBeInstanceOf(SubscriptionError);
   });
 });
