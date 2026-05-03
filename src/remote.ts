@@ -160,8 +160,22 @@ function validateSessionOwnership(session: Session, apiKey: string, res: import(
 
 // --- HTTP server ---
 
+export function parseRequestUrl(rawUrl: string | undefined, baseUrl: string): URL | null {
+  try {
+    return new URL(rawUrl || '/', baseUrl);
+  } catch (err) {
+    console.warn('[OAS MCP Remote] invalid request target', { url: rawUrl, err: String(err) });
+    return null;
+  }
+}
+
 const server = createServer(async (req, res) => {
-  const requestUrl = new URL(req.url || '/', PUBLIC_BASE_URL);
+  const requestUrl = parseRequestUrl(req.url, PUBLIC_BASE_URL);
+  if (!requestUrl) {
+    res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('Bad Request: invalid request target');
+    return;
+  }
   const pathname = requestUrl.pathname;
 
   // CORS
@@ -220,6 +234,13 @@ const server = createServer(async (req, res) => {
   if (pathname === '/.well-known/oauth-authorization-server') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(handleAuthServerMetadata(req.headers.host));
+    return;
+  }
+
+  // ChatGPT Apps directory domain-verification challenge.
+  if (pathname === '/.well-known/openai-apps-challenge') {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('9Sq_BWC7kLCtJwo1sVOcjkt6WkCeVw6zTXz0Xt6RzVo');
     return;
   }
 
@@ -394,31 +415,7 @@ const server = createServer(async (req, res) => {
   }
 });
 
-// --- Cleanup idle sessions every 5 min ---
-
-setInterval(() => {
-  const now = Date.now();
-  for (const [sid, session] of sessions) {
-    if (now - session.lastUsed > 30 * 60 * 1000) {
-      console.log(`[OAS MCP] Cleaning up idle session: ${sid}`);
-      session.transport.close();
-      sessions.delete(sid);
-    }
-  }
-  // Clean up auth entries with no active sessions
-  for (const [key] of authCache) {
-    const hasSession = [...sessions.values()].some((s) => s.apiKey === key);
-    if (!hasSession) {
-      const entry = authCache.get(key);
-      entry?.tokenManager.destroy();
-      authCache.delete(key);
-    }
-  }
-}, 5 * 60 * 1000);
-
-// --- Graceful shutdown ---
-
-process.on('SIGINT', async () => {
+async function shutdownRemoteServer(): Promise<void> {
   console.log('[OAS MCP] Shutting down...');
   for (const [sid, session] of sessions) {
     await session.transport.close().catch(() => {});
@@ -429,30 +426,51 @@ process.on('SIGINT', async () => {
   }
   authCache.clear();
   process.exit(0);
-});
-
-process.on('SIGTERM', async () => {
-  console.log('[OAS MCP] Shutting down...');
-  for (const [sid, session] of sessions) {
-    await session.transport.close().catch(() => {});
-    sessions.delete(sid);
-  }
-  for (const [, entry] of authCache) {
-    entry.tokenManager.destroy();
-  }
-  authCache.clear();
-  process.exit(0);
-});
-
-// --- Start ---
-
-// Warn if OAuth token encryption is not configured (ChatGPT OAuth will fail)
-if (!process.env.OAS_TOKEN_SECRET) {
-  console.warn('[OAS MCP Remote] WARNING: OAS_TOKEN_SECRET is not set. OAuth/ChatGPT integration will not work. API key auth (Perplexity) is unaffected.');
 }
 
-server.listen(PORT, () => {
-  console.log(`[OAS MCP Remote] Streamable HTTP server listening on port ${PORT}`);
-  console.log(`[OAS MCP Remote] Proxy: ${PROXY_URL}`);
-  console.log(`[OAS MCP Remote] Auth: ${AUTH_SERVER_URL}`);
-});
+function startRemoteServer(): void {
+  // Cleanup idle sessions every 5 min. Keep lifecycle hooks inside the main
+  // entrypoint so parser-focused tests can import this module without side
+  // effects.
+  setInterval(() => {
+    const now = Date.now();
+    for (const [sid, session] of sessions) {
+      if (now - session.lastUsed > 30 * 60 * 1000) {
+        console.log(`[OAS MCP] Cleaning up idle session: ${sid}`);
+        session.transport.close();
+        sessions.delete(sid);
+      }
+    }
+    // Clean up auth entries with no active sessions
+    for (const [key] of authCache) {
+      const hasSession = [...sessions.values()].some((s) => s.apiKey === key);
+      if (!hasSession) {
+        const entry = authCache.get(key);
+        entry?.tokenManager.destroy();
+        authCache.delete(key);
+      }
+    }
+  }, 5 * 60 * 1000);
+
+  process.on('SIGINT', () => {
+    void shutdownRemoteServer();
+  });
+  process.on('SIGTERM', () => {
+    void shutdownRemoteServer();
+  });
+
+  // Warn if OAuth token encryption is not configured (ChatGPT OAuth will fail)
+  if (!process.env.OAS_TOKEN_SECRET) {
+    console.warn('[OAS MCP Remote] WARNING: OAS_TOKEN_SECRET is not set. OAuth/ChatGPT integration will not work. API key auth (Perplexity) is unaffected.');
+  }
+
+  server.listen(PORT, () => {
+    console.log(`[OAS MCP Remote] Streamable HTTP server listening on port ${PORT}`);
+    console.log(`[OAS MCP Remote] Proxy: ${PROXY_URL}`);
+    console.log(`[OAS MCP Remote] Auth: ${AUTH_SERVER_URL}`);
+  });
+}
+
+if (import.meta.main) {
+  startRemoteServer();
+}
