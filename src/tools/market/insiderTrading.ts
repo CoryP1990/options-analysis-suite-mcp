@@ -12,7 +12,7 @@ export function register(server: McpServer, client: ProxyClient): void {
       description: 'Get insider trading activity for a company. Default response focuses on economically meaningful open-market buys and sells, groups repeated filing rows into event-level summaries, and summarizes awards/exercises/tax withholding separately.',
       inputSchema: {
         symbol: z.string().describe('Ticker symbol'),
-        full: z.boolean().optional().describe('Return the raw insider-trading feed without MCP response shaping.'),
+        full: z.boolean().optional().describe('Return the less-summarized insider-trading feed (raw shape, still subject to the MCP response budget).'),
       },
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },

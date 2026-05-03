@@ -46,7 +46,7 @@ describe('get_dark_pool_data — view=summary (default behavior)', () => {
     expect(result.content[0].text).toContain('No data available');
   });
 
-  test('full=true skips size guard and returns raw aggregate payload', async () => {
+  test('full=true returns less-summarized aggregate payload', async () => {
     const otc = { symbol: 'SPY', weeklyData: Array.from({ length: 52 }, (_, i) => ({ weekEnding: `w${i}` })), summary: {} };
     const ats = { symbol: 'SPY', weeklyData: [{ weekEnding: 'w0' }], summary: {} };
     const { handler } = createHarness({
