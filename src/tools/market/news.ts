@@ -108,7 +108,7 @@ export function register(server: McpServer, client: ProxyClient): void {
       description: 'Get recent news headlines for a stock. Useful for understanding catalysts behind price or volatility moves, and for assessing event risk before entering an options position. Default response relevance-ranks the latest raw feed against the company profile and suppresses filing-style ownership updates when stronger catalyst news is available.',
       inputSchema: {
         symbol: z.string().describe('Ticker symbol'),
-        full: z.boolean().optional().describe('Return the raw recent news feed without relevance filtering or response shaping.'),
+        full: z.boolean().optional().describe('Return the less-summarized recent news feed without relevance filtering (raw shape, still subject to the MCP response budget).'),
       },
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },

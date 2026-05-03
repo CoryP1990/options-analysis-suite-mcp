@@ -123,7 +123,7 @@ describe('get_snapshot — GEX details dual handling', () => {
   });
 });
 
-describe('get_snapshot — full mode uses _skipSizeGuard', () => {
+describe('get_snapshot — full mode returns less-summarized payload', () => {
   test('type=gex full=true strips synced row ids', async () => {
     const stub = {
       data: [
