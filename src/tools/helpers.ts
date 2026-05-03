@@ -200,8 +200,7 @@ export function applyResponseSizeGuard(data: unknown, maxResponseBytes = MAX_RES
 /**
  * Wraps a tool handler function with standard error handling.
  * Returns JSON data on success, human-readable error on failure.
- * Applies response size guard unless the handler signals to skip it
- * by returning { _skipSizeGuard: true, data: ... }.
+ * Applies response size guard to all tool responses.
  */
 export function toolHandler<T extends Record<string, unknown>>(
   fn: (args: T) => Promise<unknown>,
@@ -214,10 +213,8 @@ export function toolHandler<T extends Record<string, unknown>>(
         return { content: [{ type: 'text', text: 'No data available for this query.' }] };
       }
 
-      // Check if the handler opted out of the size guard
-      let skipGuard = false;
+      // Backward-compat: unwrap legacy full-mode shape from tool handlers.
       if (typeof data === 'object' && data !== null && (data as any)?._skipSizeGuard === true) {
-        skipGuard = true;
         data = (data as any).data;
       }
 
@@ -229,13 +226,7 @@ export function toolHandler<T extends Record<string, unknown>>(
         return { content: [{ type: 'text', text: msg }] };
       }
 
-      let json: string;
-      if (skipGuard) {
-        // Full mode — compact JSON to minimize token usage
-        json = JSON.stringify(sanitizeMcpWireOutput(data));
-      } else {
-        json = applyResponseSizeGuard(data);
-      }
+      const json = applyResponseSizeGuard(data);
 
       return {
         content: [{ type: 'text', text: json }],

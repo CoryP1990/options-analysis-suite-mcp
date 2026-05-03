@@ -13,7 +13,7 @@ export function register(server: McpServer, client: ProxyClient): void {
       inputSchema: {
         symbol: z.string().describe('Ticker symbol (e.g., AAPL, SPY)'),
         days: z.number().int().min(1).max(1095).default(90).describe('Days of history (default 90). The default 90-day view returns the 30 most recent entries; larger windows may be summarized unless full=true.'),
-        full: z.boolean().optional().describe('Return the full raw IV history and bypass the response size guard.'),
+        full: z.boolean().optional().describe('Return less-summarized IV history (raw shape, still subject to the MCP response budget).'),
       },
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },

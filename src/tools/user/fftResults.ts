@@ -15,7 +15,7 @@ export function register(server: McpServer, client: ProxyClient): void {
         symbol: z.string().optional().describe('Filter by ticker symbol'),
         limit: z.number().int().min(1).max(50).default(10).describe('Max results (default 10)'),
         since: z.string().optional().describe('Only results after this date (ISO format)'),
-        full: z.boolean().default(false).describe('Return full untrimmed data including nested model outputs and calibration parameters'),
+        full: z.boolean().default(false).describe('Return less-summarized data including nested model outputs and calibration parameters (raw shape, still subject to the MCP response budget)'),
       },
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },

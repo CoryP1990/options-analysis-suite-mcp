@@ -21,7 +21,7 @@ export function register(server: McpServer, client: ProxyClient): void {
         model: z.string().optional().describe('Filter by pricing model (e.g., Black-Scholes, Heston)'),
         limit: z.number().int().min(1).max(200).default(10).describe('Max results (default 10)'),
         since: z.string().optional().describe('Only results after this date (ISO format)'),
-        full: z.boolean().default(false).describe('Return full untrimmed data including detail tables, correlation matrices, and per-position breakdowns'),
+        full: z.boolean().default(false).describe('Return less-summarized data including detail tables, correlation matrices, and per-position breakdowns (raw shape, still subject to the MCP response budget)'),
       },
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
