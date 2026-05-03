@@ -25,11 +25,11 @@ const tokenKey = TOKEN_SECRET
   ? createHash('sha256').update(TOKEN_SECRET).digest()
   : null;
 
-// Allowed redirect URIs — exact origin+path or prefix for ChatGPT subpaths
+// Allowed redirect URIs — exact origin+path
 const ALLOWED_REDIRECTS = [
-  // ChatGPT (uses varying callback paths under these origins)
-  'https://chatgpt.com/',
-  'https://chat.openai.com/',
+  // ChatGPT/OpenAI callback endpoints
+  'https://chatgpt.com/aip/oauth/callback',
+  'https://chat.openai.com/aip/oauth/callback',
   // Claude Web (exact documented callback paths)
   'https://claude.ai/api/mcp/auth_callback',
   'https://claude.com/api/mcp/auth_callback',
@@ -106,12 +106,14 @@ function isRedirectAllowed(uri: string): boolean {
   try {
     const parsed = new URL(uri);
     const normalized = `${parsed.origin}${parsed.pathname}`;
-    return ALLOWED_REDIRECTS.some((allowed) => {
-      // ChatGPT uses varying subpaths — match by prefix
-      if (allowed.endsWith('/')) return normalized.startsWith(allowed) || uri.startsWith(allowed);
-      // All others — exact origin+path match
-      return normalized === allowed;
-    });
+
+    // ChatGPT/OpenAI allow variable app IDs but require the OAuth callback suffix.
+    if ((parsed.origin === 'https://chatgpt.com' || parsed.origin === 'https://chat.openai.com')
+      && parsed.pathname.endsWith('/oauth/callback')) {
+      return true;
+    }
+
+    return ALLOWED_REDIRECTS.some((allowed) => normalized === allowed);
   } catch {
     return false;
   }
