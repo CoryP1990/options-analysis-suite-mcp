@@ -88,6 +88,32 @@ describe('applyResponseSizeGuard', () => {
   });
 });
 
+describe('sanitizeMcpWireOutput dynamic _<key>_meta preservation', () => {
+  test('preserves snake_case truncation metadata (e.g. _recent_history_meta from marketFlowShaping)', () => {
+    // marketFlowShaping.ts:162 emits _recent_history_meta verbatim. The
+    // earlier alphanumeric-only regex silently dropped this key, leaving
+    // callers with no way to detect that recent_history was truncated.
+    const sanitized = sanitizeMcpWireOutput({
+      recent_history: [{ day: 1 }, { day: 2 }],
+      _recent_history_meta: { showing: 2, total: 90, truncated: true },
+    }) as Record<string, any>;
+
+    expect(sanitized.recent_history).toHaveLength(2);
+    expect(sanitized['recent_historyMeta']).toEqual({ showing: 2, total: 90, truncated: true });
+    expect(sanitized._recent_history_meta).toBeUndefined();
+  });
+
+  test('preserves camelCase truncation metadata (e.g. _weeklyData_meta from darkPoolDataShaping)', () => {
+    const sanitized = sanitizeMcpWireOutput({
+      weeklyData: [{ week: 'w0' }],
+      _weeklyData_meta: { truncated: true, originalLength: 52, returned: 1 },
+    }) as Record<string, any>;
+
+    expect(sanitized.weeklyDataMeta).toMatchObject({ truncated: true, originalLength: 52, returned: 1 });
+    expect(sanitized._weeklyData_meta).toBeUndefined();
+  });
+});
+
 describe('sanitizeMcpWireOutput', () => {
   test('removes underscore metadata fields while preserving useful preview payloads', () => {
     const sanitized = sanitizeMcpWireOutput({

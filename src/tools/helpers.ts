@@ -58,7 +58,10 @@ const READABLE_KEY_RENAMES: Record<string, string> = {
   omittedPositionCount: 'positionsNotShown',
 };
 
-const DYNAMIC_META_KEY_RE = /^_([a-zA-Z0-9]+)_meta$/;
+// Match _<base>_meta where <base> is any non-empty key — including snake_case
+// (e.g. _recent_history_meta from marketFlowShaping.ts:162) and the camelCase
+// keys emitted by truncateLargeArrays / aggressivelyTrimLargeArrays.
+const DYNAMIC_META_KEY_RE = /^_(.+)_meta$/;
 
 function isSyncBackedRow(obj: Record<string, unknown>): boolean {
   return (
