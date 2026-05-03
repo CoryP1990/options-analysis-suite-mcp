@@ -36,12 +36,7 @@ export class TokenManager {
     // Fetch profile and verify subscription
     this.profile = await getProfile(this.authServerUrl, this.tokens.accessToken);
 
-    if (!this.isSubscriptionActive()) {
-      throw new SubscriptionError(
-        'Your Options Analysis Suite subscription is not active. ' +
-        'Please visit optionsanalysissuite.com/pricing to subscribe or renew.',
-      );
-    }
+    this.assertActiveSubscription();
 
     // Schedule proactive refresh
     this.scheduleRefresh();
@@ -135,14 +130,25 @@ export class TokenManager {
       this.tokens = await refreshAccessToken(this.authServerUrl, this.tokens.refreshToken);
       // Re-check profile/subscription on refresh
       this.profile = await getProfile(this.authServerUrl, this.tokens.accessToken);
+      this.assertActiveSubscription();
     } catch (err) {
       // If refresh fails, try full re-login
       try {
         this.tokens = await login(this.authServerUrl, this.email, this.password);
         this.profile = await getProfile(this.authServerUrl, this.tokens.accessToken);
+        this.assertActiveSubscription();
       } catch {
         throw new AuthError('Session expired and re-login failed. Please restart the MCP extension.');
       }
+    }
+  }
+
+  private assertActiveSubscription(): void {
+    if (!this.isSubscriptionActive()) {
+      throw new SubscriptionError(
+        'Your Options Analysis Suite subscription is not active. ' +
+        'Please visit optionsanalysissuite.com/pricing to subscribe or renew.',
+      );
     }
   }
 }
