@@ -29,8 +29,12 @@ describe('applyResponseSizeGuard', () => {
     const parsed = JSON.parse(applyResponseSizeGuard(payload, 50 * 1024));
 
     expect(parsed.data).toHaveLength(5);
-    // After both passes, the aggressive meta records the post-first-pass length (51)
-    expect(parsed._data_meta).toBeUndefined();
+    expect(parsed.dataMeta).toMatchObject({
+      truncated: true,
+      aggressive: true,
+      originalLength: 50,
+      returned: 5,
+    });
   });
 
   test('aggressively trims oversized root arrays before falling back to an error payload', () => {

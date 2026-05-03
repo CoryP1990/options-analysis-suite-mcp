@@ -58,6 +58,8 @@ const READABLE_KEY_RENAMES: Record<string, string> = {
   omittedPositionCount: 'positionsNotShown',
 };
 
+const DYNAMIC_META_KEY_RE = /^_([a-zA-Z0-9]+)_meta$/;
+
 function isSyncBackedRow(obj: Record<string, unknown>): boolean {
   return (
     'user_id' in obj
@@ -112,6 +114,12 @@ export function sanitizeMcpWireOutput(data: unknown, depth = 0): unknown {
     }
     if (key in READABLE_KEY_RENAMES) {
       out[READABLE_KEY_RENAMES[key]] = sanitizeMcpWireOutput(value, depth + 1);
+      continue;
+    }
+    const dynamicMetaMatch = key.match(DYNAMIC_META_KEY_RE);
+    if (dynamicMetaMatch) {
+      const [, base] = dynamicMetaMatch;
+      out[`${base}Meta`] = sanitizeMcpWireOutput(value, depth + 1);
       continue;
     }
     if (key.startsWith('_')) continue;
