@@ -58,6 +58,11 @@ const READABLE_KEY_RENAMES: Record<string, string> = {
   omittedPositionCount: 'positionsNotShown',
 };
 
+// Match _<base>_meta where <base> is any non-empty key — including snake_case
+// (e.g. _recent_history_meta from marketFlowShaping.ts:162) and the camelCase
+// keys emitted by truncateLargeArrays / aggressivelyTrimLargeArrays.
+const DYNAMIC_META_KEY_RE = /^_(.+)_meta$/;
+
 function isSyncBackedRow(obj: Record<string, unknown>): boolean {
   return (
     'user_id' in obj
@@ -112,6 +117,12 @@ export function sanitizeMcpWireOutput(data: unknown, depth = 0): unknown {
     }
     if (key in READABLE_KEY_RENAMES) {
       out[READABLE_KEY_RENAMES[key]] = sanitizeMcpWireOutput(value, depth + 1);
+      continue;
+    }
+    const dynamicMetaMatch = key.match(DYNAMIC_META_KEY_RE);
+    if (dynamicMetaMatch) {
+      const [, base] = dynamicMetaMatch;
+      out[`${base}Meta`] = sanitizeMcpWireOutput(value, depth + 1);
       continue;
     }
     if (key.startsWith('_')) continue;

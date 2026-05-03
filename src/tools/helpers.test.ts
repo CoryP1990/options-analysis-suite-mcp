@@ -29,8 +29,12 @@ describe('applyResponseSizeGuard', () => {
     const parsed = JSON.parse(applyResponseSizeGuard(payload, 50 * 1024));
 
     expect(parsed.data).toHaveLength(5);
-    // After both passes, the aggressive meta records the post-first-pass length (51)
-    expect(parsed._data_meta).toBeUndefined();
+    expect(parsed.dataMeta).toMatchObject({
+      truncated: true,
+      aggressive: true,
+      originalLength: 50,
+      returned: 5,
+    });
   });
 
   test('aggressively trims oversized root arrays before falling back to an error payload', () => {
@@ -81,6 +85,32 @@ describe('applyResponseSizeGuard', () => {
     expect(parsed.slice(0, 5).map((row: { id: number }) => row.id)).toEqual([0, 1, 2, 3, 4]);
     expect(parsed[5].truncated).toBe(true);
     expect(parsed[5].aggressive).toBe(true);
+  });
+});
+
+describe('sanitizeMcpWireOutput dynamic _<key>_meta preservation', () => {
+  test('preserves snake_case truncation metadata (e.g. _recent_history_meta from marketFlowShaping)', () => {
+    // marketFlowShaping.ts:162 emits _recent_history_meta verbatim. The
+    // earlier alphanumeric-only regex silently dropped this key, leaving
+    // callers with no way to detect that recent_history was truncated.
+    const sanitized = sanitizeMcpWireOutput({
+      recent_history: [{ day: 1 }, { day: 2 }],
+      _recent_history_meta: { showing: 2, total: 90, truncated: true },
+    }) as Record<string, any>;
+
+    expect(sanitized.recent_history).toHaveLength(2);
+    expect(sanitized['recent_historyMeta']).toEqual({ showing: 2, total: 90, truncated: true });
+    expect(sanitized._recent_history_meta).toBeUndefined();
+  });
+
+  test('preserves camelCase truncation metadata (e.g. _weeklyData_meta from darkPoolDataShaping)', () => {
+    const sanitized = sanitizeMcpWireOutput({
+      weeklyData: [{ week: 'w0' }],
+      _weeklyData_meta: { truncated: true, originalLength: 52, returned: 1 },
+    }) as Record<string, any>;
+
+    expect(sanitized.weeklyDataMeta).toMatchObject({ truncated: true, originalLength: 52, returned: 1 });
+    expect(sanitized._weeklyData_meta).toBeUndefined();
   });
 });
 
