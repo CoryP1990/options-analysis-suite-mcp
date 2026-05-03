@@ -28,17 +28,19 @@ export class TokenManager {
   /**
    * Login, fetch profile, verify subscription, schedule refresh.
    * Throws AuthError or SubscriptionError on failure.
+   *
+   * Stages tokens/profile locally and only commits them after the
+   * subscription check passes — so a failed initialize never leaves
+   * an inactive token cached on the instance.
    */
   async initialize(): Promise<void> {
-    // Login
-    this.tokens = await login(this.authServerUrl, this.email, this.password);
+    const tokens = await login(this.authServerUrl, this.email, this.password);
+    const profile = await getProfile(this.authServerUrl, tokens.accessToken);
 
-    // Fetch profile and verify subscription
-    this.profile = await getProfile(this.authServerUrl, this.tokens.accessToken);
+    TokenManager.assertProfileSubscriptionActive(profile);
 
-    this.assertActiveSubscription();
-
-    // Schedule proactive refresh
+    this.tokens = tokens;
+    this.profile = profile;
     this.scheduleRefresh();
   }
 
@@ -75,12 +77,24 @@ export class TokenManager {
    * Check if user has active subscription.
    */
   isSubscriptionActive(): boolean {
-    if (!this.profile) return false;
-    if (this.profile.user.isDeveloper) return true;
-    if (this.profile.user.bypassSubscription) return true;
-    if (!this.profile.subscription) return false;
-    const status = this.profile.subscription.status;
+    return this.profile != null && TokenManager.profileSubscriptionActive(this.profile);
+  }
+
+  private static profileSubscriptionActive(profile: UserProfile): boolean {
+    if (profile.user.isDeveloper) return true;
+    if (profile.user.bypassSubscription) return true;
+    if (!profile.subscription) return false;
+    const status = profile.subscription.status;
     return status === 'active' || status === 'trialing';
+  }
+
+  private static assertProfileSubscriptionActive(profile: UserProfile): void {
+    if (!TokenManager.profileSubscriptionActive(profile)) {
+      throw new SubscriptionError(
+        'Your Options Analysis Suite subscription is not active. ' +
+        'Please visit optionsanalysissuite.com/pricing to subscribe or renew.',
+      );
+    }
   }
 
   /**
@@ -126,32 +140,33 @@ export class TokenManager {
       throw new AuthError('No refresh token available. Please restart the MCP extension.');
     }
 
+    // Stage refreshed tokens/profile locally — do NOT mutate this.tokens or
+    // this.profile until both auth and subscription checks succeed. The
+    // scheduled-timer caller (scheduleRefresh) swallows errors silently, so
+    // committing on failure would leave a fresh-but-inactive token cached
+    // and bypass the subscription gate on the next getAccessToken().
+    let nextTokens: AuthTokens;
+    let nextProfile: UserProfile;
+
     try {
-      this.tokens = await refreshAccessToken(this.authServerUrl, this.tokens.refreshToken);
-      // Re-check profile/subscription on refresh
-      this.profile = await getProfile(this.authServerUrl, this.tokens.accessToken);
+      nextTokens = await refreshAccessToken(this.authServerUrl, this.tokens.refreshToken);
+      nextProfile = await getProfile(this.authServerUrl, nextTokens.accessToken);
     } catch (err) {
       // If refresh fails, try full re-login
       try {
-        this.tokens = await login(this.authServerUrl, this.email, this.password);
-        this.profile = await getProfile(this.authServerUrl, this.tokens.accessToken);
+        nextTokens = await login(this.authServerUrl, this.email, this.password);
+        nextProfile = await getProfile(this.authServerUrl, nextTokens.accessToken);
       } catch {
         throw new AuthError('Session expired and re-login failed. Please restart the MCP extension.');
       }
     }
 
-    // Always recheck subscription, regardless of which auth path succeeded.
-    // Kept outside the try/catch so SubscriptionError surfaces correctly
-    // instead of being masked by the AuthError fallback.
-    this.assertActiveSubscription();
-  }
+    // Validate subscription on the staged profile BEFORE committing. Throws
+    // SubscriptionError without mutating state — the AuthError fallback above
+    // does not mask this.
+    TokenManager.assertProfileSubscriptionActive(nextProfile);
 
-  private assertActiveSubscription(): void {
-    if (!this.isSubscriptionActive()) {
-      throw new SubscriptionError(
-        'Your Options Analysis Suite subscription is not active. ' +
-        'Please visit optionsanalysissuite.com/pricing to subscribe or renew.',
-      );
-    }
+    this.tokens = nextTokens;
+    this.profile = nextProfile;
   }
 }

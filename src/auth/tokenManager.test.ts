@@ -102,3 +102,78 @@ describe('TokenManager — doRefresh() preserves SubscriptionError (PR #5 P1)', 
     await expect(tm.getAccessToken()).rejects.toBeInstanceOf(AuthError);
   });
 });
+
+describe('TokenManager — staging prevents inactive-token leak through swallowed scheduler errors', () => {
+  // The scheduled-timer path in scheduleRefresh() catches and silently
+  // swallows refresh failures. If doRefresh committed tokens/profile BEFORE
+  // checking subscription, a fresh-but-inactive token would land in
+  // this.tokens, and the next getAccessToken() would return it without
+  // re-checking subscription — bypassing the entitlement gate.
+
+  test('refresh-path SubscriptionError leaves prior tokens/profile unchanged', async () => {
+    fakes.login.mockImplementation(async () => freshTokens());
+    fakes.getProfile.mockImplementation(async () => activeProfile());
+    const tm = new TokenManager('https://auth', 'a@b.c', 'pw');
+    await tm.initialize();
+    tm.destroy();
+
+    (tm as any).tokens = expiredTokens();
+
+    // Refresh returns a fresh token but for an inactive subscription.
+    fakes.refreshAccessToken.mockImplementation(async () => ({
+      accessToken: 'INACTIVE_FRESH', refreshToken: 'r-inactive', expiresAt: Date.now() + 3_600_000,
+    }));
+    fakes.getProfile.mockImplementation(async () => inactiveProfile());
+
+    await expect(tm.getAccessToken()).rejects.toBeInstanceOf(SubscriptionError);
+
+    // The fresh-but-inactive token must NOT have been committed.
+    expect((tm as any).tokens.accessToken).not.toBe('INACTIVE_FRESH');
+    // Profile must not have been replaced with the inactive one.
+    expect((tm as any).profile?.subscription?.status).not.toBe('canceled');
+  });
+
+  test('re-login-fallback SubscriptionError leaves prior tokens/profile unchanged', async () => {
+    fakes.login.mockImplementation(async () => freshTokens());
+    fakes.getProfile.mockImplementation(async () => activeProfile());
+    const tm = new TokenManager('https://auth', 'a@b.c', 'pw');
+    await tm.initialize();
+    tm.destroy();
+    (tm as any).tokens = expiredTokens();
+
+    // Refresh fails → re-login succeeds with inactive subscription.
+    fakes.refreshAccessToken.mockImplementation(async () => { throw new Error('refresh 401'); });
+    fakes.login.mockImplementation(async () => ({
+      accessToken: 'RELOGIN_INACTIVE', refreshToken: 'r-relogin', expiresAt: Date.now() + 3_600_000,
+    }));
+    fakes.getProfile.mockImplementation(async () => inactiveProfile());
+
+    await expect(tm.getAccessToken()).rejects.toBeInstanceOf(SubscriptionError);
+
+    expect((tm as any).tokens.accessToken).not.toBe('RELOGIN_INACTIVE');
+    expect((tm as any).profile?.subscription?.status).not.toBe('canceled');
+  });
+
+  test('scheduled-timer swallow path: post-failure getAccessToken does NOT return the inactive token', async () => {
+    fakes.login.mockImplementation(async () => freshTokens());
+    fakes.getProfile.mockImplementation(async () => activeProfile());
+    const tm = new TokenManager('https://auth', 'a@b.c', 'pw');
+    await tm.initialize();
+    tm.destroy();
+
+    // Set up the inactive-on-refresh scenario.
+    fakes.refreshAccessToken.mockImplementation(async () => ({
+      accessToken: 'INACTIVE_FRESH', refreshToken: 'r-inactive', expiresAt: Date.now() + 3_600_000,
+    }));
+    fakes.getProfile.mockImplementation(async () => inactiveProfile());
+
+    // Simulate the timer firing doRefresh and swallowing the SubscriptionError
+    // (mirrors scheduleRefresh's try { await refreshPromise; } catch {}).
+    try { await (tm as any).doRefresh(); } catch { /* swallowed by scheduler */ }
+
+    // Critical assertion: this.tokens must NOT be the inactive fresh token.
+    // (If it were, the next getAccessToken would happily return it because
+    // it's not expired, bypassing subscription check.)
+    expect((tm as any).tokens.accessToken).not.toBe('INACTIVE_FRESH');
+  });
+});
