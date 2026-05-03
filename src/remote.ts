@@ -161,7 +161,14 @@ function validateSessionOwnership(session: Session, apiKey: string, res: import(
 // --- HTTP server ---
 
 const server = createServer(async (req, res) => {
-  const requestUrl = new URL(req.url || '/', PUBLIC_BASE_URL);
+  let requestUrl: URL;
+  try {
+    requestUrl = new URL(req.url || '/', PUBLIC_BASE_URL);
+  } catch {
+    res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('Bad Request: invalid request URL');
+    return;
+  }
   const pathname = requestUrl.pathname;
 
   // CORS
