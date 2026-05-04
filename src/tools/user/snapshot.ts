@@ -23,6 +23,7 @@ const GEX_KEY_HUMANIZE: Record<string, string> = {
   callWall: 'call wall',
   putWall: 'put wall',
   gammaFlip: 'gamma flip',
+  absGamma: 'abs gamma',
   gammaTilt: 'gamma tilt',
   secondaryFlips: 'secondary flips',
 };
@@ -39,6 +40,53 @@ function humanizeGexLevels(target: unknown): void {
       delete obj[k];
     }
   }
+}
+
+function readNumericKey(target: unknown, keys: string[]): number | null {
+  if (!target || typeof target !== 'object' || Array.isArray(target)) return null;
+  const obj = target as Record<string, unknown>;
+  for (const key of keys) {
+    const value = obj[key];
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+  }
+  return null;
+}
+
+function enrichGexComboDetails(record: unknown): void {
+  if (!record || typeof record !== 'object' || Array.isArray(record)) return;
+  const row = record as Record<string, any>;
+  const details = row.details;
+  if (!details || typeof details !== 'object' || Array.isArray(details)) return;
+  const rawCombos = Array.isArray(details.comboStrikes) ? details.comboStrikes : [];
+  if (!rawCombos.length) return;
+  const rawStrikeCount = new Set(
+    rawCombos
+      .map((combo: any) => Number(combo?.strike))
+      .filter((strike: number) => Number.isFinite(strike))
+  ).size;
+
+  const callWall = readNumericKey(row.data, ['callWall', 'call wall']) ?? readNumericKey(row, ['callWall', 'call wall']);
+  const putWall = readNumericKey(row.data, ['putWall', 'put wall']) ?? readNumericKey(row, ['putWall', 'put wall']);
+  if (callWall == null || putWall == null) {
+    details.rawComboStrikeCount = rawStrikeCount;
+    details.visibleComboStrikeCount = 0;
+    details.visibleComboStrikes = [];
+    return;
+  }
+
+  const low = Math.min(callWall, putWall);
+  const high = Math.max(callWall, putWall);
+  const seen = new Set<number>();
+  const visibleCombos = rawCombos.filter((combo: any) => {
+    const strike = Number(combo?.strike);
+    if (!Number.isFinite(strike) || strike < low || strike > high || seen.has(strike)) return false;
+    seen.add(strike);
+    return true;
+  });
+
+  details.rawComboStrikeCount = rawStrikeCount;
+  details.visibleComboStrikeCount = visibleCombos.length;
+  details.visibleComboStrikes = visibleCombos;
 }
 
 function stripRiskContributionBreakdowns(value: unknown, depth = 0): void {
@@ -65,7 +113,7 @@ function replaceDuplicatedDetailsInSnapshotRows(res: any): void {
 
 const SNAPSHOT_DESCRIPTION = `Get the user's synced snapshot history by type. Each type serves a different question:
 
-• type="gex" — per-symbol Gamma Exposure snapshots. REQUIRED: \`symbol\`. Returns the 3 most recent snapshots (no dedupe — rows may be near-duplicates if recorded back-to-back). Includes per-expiration breakdown, call/put walls, gamma flip point, unusual activity, and expected move data.
+• type="gex" — per-symbol Gamma Exposure snapshots. REQUIRED: \`symbol\`. Returns the 3 most recent snapshots (no dedupe — rows may be near-duplicates if recorded back-to-back). Includes per-expiration breakdown, call/put walls, gamma flip point, abs gamma anchor, unusual activity, expected move data, and raw vs in-wall visible combo-strike counts.
 • type="portfolio" — account-wide portfolio snapshots with market-scaled raw Greeks (no \$): first-order delta, gamma, theta/day, vega/1% IV, rho/1% rate; second-order vanna/1% IV, charm/day (delta decay), vomma/1% IV², veta/day (vega decay, sign-flipped for market convention). Default view collapses consecutive identical snapshots to surface the latest distinct states. For \$-impact views of the same Greeks, use type="risk".
 • type="risk" — account-wide risk-analysis snapshots: Value-at-Risk (95%/99%), Conditional VaR, portfolio beta, Sharpe ratio, maximum drawdown, volatility, stress test results, and aggregate Greek \$-impact exposure. \$-Greeks include first-order dollarDelta, dollarGamma (per 1% move), dollarTheta/day, dollarVega (per 1% IV), dollarRho (per 1% rate) and second-order dollarVanna (per 1% IV move), dollarCharm (daily \$Δ decay), dollarVomma (per 1% IV), dollarVeta (daily vega decay). Units & sign convention: var95/var99/cvar95/maxDrawdown/volatility are in PERCENT (e.g., 2.5 = 2.5%); volatility is annualized; var95/var99/cvar95/maxDrawdown are POSITIVE loss magnitudes (e.g., var95=2.5 means a 2.5% loss). beta/sharpeRatio are dimensionless. stressResults[].impact is signed \$ P&L; impactPercent is signed % of portfolio. details.historicalVarDetails: worstDay is POSITIVE magnitude of the worst single-day LOSS (worstDay=13.46 means a 13.46% loss, NOT a 13.46% gain); bestDay and avgReturn are SIGNED percent returns. Default view collapses consecutive identical snapshots. For raw-unit Greeks, use type="portfolio".`;
 
@@ -94,6 +142,7 @@ export function register(server: McpServer, client: ProxyClient): void {
         if (res && Array.isArray(res.data)) {
           for (const record of res.data) {
             stripSyncRecordMetadata(record);
+            enrichGexComboDetails(record);
             humanizeGexLevels(record);
             if (record && typeof record === 'object' && record.data && typeof record.data === 'object') {
               humanizeGexLevels(record.data);

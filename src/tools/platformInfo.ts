@@ -60,7 +60,7 @@ Other (3):
 
   capabilities: `Platform Capabilities:
 - Multi-model option pricing with live calibration to market prices
-- GEX (Gamma Exposure) analysis: call/put walls, gamma flip, dealer positioning
+- GEX (Gamma Exposure) analysis: call/put walls, gamma flip, abs gamma anchor, dealer positioning
 - Portfolio risk: VaR (Historical + Monte Carlo), beta, Sharpe, stress tests, correlation matrix
 - FFT Options Scanner: frequency-domain mispricing detection across entire chains
 - Analysis history: all pricing calculations stored locally, synced for AI analysis

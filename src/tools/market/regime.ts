@@ -15,7 +15,7 @@ const STRESS_SCORE_NOTE = 'stress_score is a raw composite regime score, not a 0
 const REGIME_DESCRIPTION = `Get regime data at one of three scopes. Pick the scope that matches the question; irrelevant sub-params are ignored.
 
 • scope="market" — MARKET COMPOSITE stress regime (aggregate across SPY/QQQ/IWM/DIA, not per-symbol). Returns composite stress score, confidence, key drivers, feature z-scores. Bands: CALM < -0.5, NORMAL -0.5..0.5, ELEVATED 0.5..1.5, STRESS 1.5..2.5, CRISIS ≥ 2.5. Accepts \`date\` (YYYY-MM-DD, default latest) and \`include_symbols\` (default false; true also returns up to the top 8 symbols per classification tier sorted by absolute stress score, with raw vector internals stripped).
-• scope="symbol" — per-symbol daily regime + authoritative Greek exposures (net gamma/delta/vega/vanna/charm/vomma, call wall, put wall, gamma flip, top 10 gamma strikes). REQUIRED: \`symbol\`. Accepts \`days\` (default 1 = latest, max 30) and \`full\` (default false; true keeps raw vector). This is the correct scope for "what are SPY's Greek exposures?" — do NOT use get_options_analytics_history for current exposures.
+• scope="symbol" — per-symbol daily regime + authoritative Greek exposures (net gamma/delta/vega/vanna/charm/vomma, call wall, put wall, gamma flip, abs gamma anchor, top 10 gamma strikes). REQUIRED: \`symbol\`. Accepts \`days\` (default 1 = latest, max 30) and \`full\` (default false; true keeps raw vector). This is the correct scope for "what are SPY's Greek exposures?" — do NOT use get_options_analytics_history for current exposures.
 • scope="intraday" — intraday regime scan history for a symbol: 5 scans/day (open, morning, midday, afternoon, pre-close), each with stress scoring, regime classification, and compact Greek exposure snapshots. REQUIRED: \`symbol\`. Accepts \`days\` (default 5, max 90), \`date\` (overrides days), and \`interval\` (filter to a single scan).`;
 
 function compactTopStrikes(topStrikes: unknown, limit = 10): unknown {
@@ -38,6 +38,7 @@ function hoistExposures(entry: any, topStrikeLimit = 10): any {
       netGamma: gex.netGamma, netDelta: gex.netDelta, netVega: gex.netVega,
       netVanna: gex.netVanna, netCharm: gex.netCharm, netVomma: gex.netVomma,
       'call wall': gex.callWall, 'put wall': gex.putWall, 'gamma flip': gex.gammaFlip,
+      'abs gamma': gex.absGamma,
       regime: gex.regime, topStrikes: compactTopStrikes(gex.topStrikes, topStrikeLimit),
     };
   }
@@ -76,6 +77,7 @@ export function register(server: McpServer, client: ProxyClient): void {
                 netGamma: gex.netGamma, netDelta: gex.netDelta, netVega: gex.netVega,
                 netVanna: gex.netVanna, netCharm: gex.netCharm, netVomma: gex.netVomma,
                 'call wall': gex.callWall, 'put wall': gex.putWall, 'gamma flip': gex.gammaFlip,
+                'abs gamma': gex.absGamma,
                 regime: gex.regime,
               };
             }
@@ -94,6 +96,7 @@ export function register(server: McpServer, client: ProxyClient): void {
                     netGamma: gex.netGamma, netDelta: gex.netDelta, netVega: gex.netVega,
                     netVanna: gex.netVanna, netCharm: gex.netCharm, netVomma: gex.netVomma,
                     'call wall': gex.callWall, 'put wall': gex.putWall, 'gamma flip': gex.gammaFlip,
+                    'abs gamma': gex.absGamma,
                     regime: gex.regime,
                   };
                 }
@@ -234,6 +237,7 @@ export function register(server: McpServer, client: ProxyClient): void {
               netGamma: gex.netGamma, netDelta: gex.netDelta, netVega: gex.netVega,
               netVanna: gex.netVanna, netCharm: gex.netCharm, netVomma: gex.netVomma,
               'call wall': gex.callWall, 'put wall': gex.putWall, 'gamma flip': gex.gammaFlip,
+              'abs gamma': gex.absGamma,
               regime: gex.regime, topStrikes: compactTopStrikes(gex.topStrikes),
             };
           }

@@ -131,7 +131,7 @@ describe('get_regime — GEX exposure hoist', () => {
             _meta: {
               gex: {
                 spotPrice: 500, netGamma: 1e9, callWall: 510, putWall: 490,
-                gammaFlip: 495, topStrikes: [500, 505, 495],
+                gammaFlip: 495, absGamma: 500, topStrikes: [500, 505, 495],
               },
             },
           },
@@ -144,6 +144,7 @@ describe('get_regime — GEX exposure hoist', () => {
     // days=1 unwraps the latest entry
     expect(parsed.exposures).toBeDefined();
     expect(parsed.exposures.netGamma).toBe(1e9);
+    expect(parsed.exposures['abs gamma']).toBe(500);
     expect(parsed.exposures.topStrikes).toEqual([500, 505, 495]);
     expect(parsed.vector).toBeUndefined();
   });
@@ -286,6 +287,7 @@ describe('get_regime — symbol tier rename (avoid input/output `scope` collisio
                 callWall: 510,
                 putWall: 490,
                 gammaFlip: 495,
+                absGamma: 500,
                 topStrikes: [
                   { strike: 500, callGamma: 10, putGamma: -5, netGamma: 5, callDelta: 1 },
                   { strike: 505, callGamma: 8, putGamma: -2, netGamma: 6, callDelta: 2 },
@@ -311,6 +313,7 @@ describe('get_regime — symbol tier rename (avoid input/output `scope` collisio
       expect(scan.vector).toBeUndefined();
       expect(scan.exposures['call wall']).toBe(510);
       expect(scan.exposures['gamma flip']).toBe(495);
+      expect(scan.exposures['abs gamma']).toBe(500);
       expect(scan.exposures.topStrikes).toEqual([
         { strike: 500, netGamma: 5 },
         { strike: 505, netGamma: 6 },

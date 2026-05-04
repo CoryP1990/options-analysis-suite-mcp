@@ -121,6 +121,32 @@ describe('get_snapshot — GEX details dual handling', () => {
     expect(parsed.data[0].details.putWallLevels).toBeUndefined();
     expect(parsed.data[0].details.omitted).toEqual(['call wall levels (2 items)', 'put wall levels (2 items)']);
   });
+
+  test('object-form details: derives visible combo strikes from stored walls', async () => {
+    const stub = {
+      data: [
+        {
+          id: 1,
+          data: { callWall: 110, putWall: 100 },
+          details: {
+            comboStrikes: [
+              { strike: 95, expiration: '2026-04-18' },
+              { strike: 100, expiration: '2026-04-18' },
+              { strike: 105, expiration: '2026-04-18' },
+              { strike: 115, expiration: '2026-04-18' },
+            ],
+          },
+        },
+      ],
+    };
+    const { handler } = createHarness(stub);
+    const result = await handler({ type: 'gex', symbol: 'SPY' });
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed.data[0].details.rawComboStrikeCount).toBe(4);
+    expect(parsed.data[0].details.visibleComboStrikeCount).toBe(2);
+    expect(parsed.data[0].details.omitted).toContain('combo strikes (4 items)');
+    expect(parsed.data[0].details.omitted).toContain('visible combo strikes (2 items)');
+  });
 });
 
 describe('get_snapshot — full mode returns less-summarized payload', () => {

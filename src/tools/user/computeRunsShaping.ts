@@ -185,6 +185,7 @@ function shapeKeyLevels(value: unknown): Record<string, unknown> | undefined {
     callWall: 'call wall',
     putWall: 'put wall',
     gammaFlip: 'gamma flip',
+    absGamma: 'abs gamma',
     gammaTilt: 'gamma tilt',
     secondaryFlips: 'secondary flips',
   };

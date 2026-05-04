@@ -40,7 +40,7 @@ The MCP currently exposes **33 tools** — consolidated into enum-driven unified
 
 ### Regime and exposure
 
-- **Regime** (`get_regime`) — Unified regime tool with three scopes: `scope='market'` (composite stress regime across SPY/QQQ/IWM/DIA with score bands and drivers), `scope='symbol'` (per-symbol daily regime + authoritative Greek exposures: net gamma/delta/vega/vanna/charm/vomma, call/put walls, gamma flip, top 10 gamma strikes), or `scope='intraday'` (5 scans/day with stress scoring + Greek snapshots)
+- **Regime** (`get_regime`) — Unified regime tool with three scopes: `scope='market'` (composite stress regime across SPY/QQQ/IWM/DIA with score bands and drivers), `scope='symbol'` (per-symbol daily regime + authoritative Greek exposures: net gamma/delta/vega/vanna/charm/vomma, call/put walls, gamma flip, abs gamma anchor, top 10 gamma strikes), or `scope='intraday'` (5 scans/day with stress scoring + Greek snapshots)
 
 ### Company, events, and filings
 
@@ -68,7 +68,7 @@ These require account sync to be enabled.
 - **Query Analysis** (`query_analysis`) — Filtered analysis-history queries by delta, volatility, and DTE
 - **Compute Runs** (`get_compute_runs`) — AI Compute Suite run history with compact run summaries, exposure key levels, model-dispersion highlights, and representative position/model consensus summaries across multiple pricing models; `view='detailed'` exposes per-model outputs when exactly one run matches
 - **FFT Results** (`get_fft_results`) — FFT scanner mispricing signals and calibration data
-- **Snapshots** (`get_snapshot`) — Unified synced-snapshot tool: `type='gex'` (per-symbol Gamma Exposure — requires `symbol`; per-expiration breakdown, call/put walls, gamma flip, unusual activity, expected move), `type='portfolio'` (account-wide portfolio snapshots with market-scaled raw Greeks — 1st + 2nd order), or `type='risk'` (account-wide VaR, CVaR, beta, Sharpe, drawdown, stress tests + $-impact Greeks)
+- **Snapshots** (`get_snapshot`) — Unified synced-snapshot tool: `type='gex'` (per-symbol Gamma Exposure — requires `symbol`; per-expiration breakdown, call/put walls, gamma flip, abs gamma anchor, unusual activity, expected move, raw vs in-wall visible combo counts), `type='portfolio'` (account-wide portfolio snapshots with market-scaled raw Greeks — 1st + 2nd order), or `type='risk'` (account-wide VaR, CVaR, beta, Sharpe, drawdown, stress tests + $-impact Greeks)
 - **Analysis Rollups** (`get_analysis_rollups`) — Daily or weekly trend aggregates over your analysis activity
 - **Account Info** (`get_account_info`) — Subscription state and authentication context
 
